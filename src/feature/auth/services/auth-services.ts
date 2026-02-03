@@ -4,7 +4,7 @@ export type RegisterPayload = {
   name: string;
   email: string;
   password: string;
-  role: "client" | "professional" | "manager";
+  role: "cliente" | "profissional" | "gerente";
   cnpjcpf: string;
   phone: string;
 };
