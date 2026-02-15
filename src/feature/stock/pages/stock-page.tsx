@@ -52,16 +52,16 @@ export const StockPage = () => {
   const handleDelete = async (id: number) => { if (!confirm("Confirmar exclusão?")) return; await deleteStock(id); showAlert({ title: "Sucesso", message: "Item excluído", type: "success" }); };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8">
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Estoque</CardTitle>
             <CardDescription>Gerencie o estoque de produtos</CardDescription>
           </div>
           <Dialog open={isOpen} onOpenChange={() => { setIsOpen(!isOpen); if (!isOpen) form.reset(); }}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2"/>Novo Item</Button>
+              <Button className="w-full sm:w-auto"><Plus className="mr-2"/>Novo Item</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -110,7 +110,7 @@ export const StockPage = () => {
                     </FormItem>
                   )} />
 
-                  <div className="flex gap-2 justify-end">
+                  <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                     <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
                     <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin mr-2"/> : null}{editingId ? "Atualizar" : "Criar"}</Button>
                   </div>

@@ -66,15 +66,15 @@ export const EmpresaListPage = () => {
   };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8">
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Empresas</CardTitle>
             <CardDescription>Gerencie as empresas</CardDescription>
           </div>
           <div className="flex items-center gap-2">
-            <Button onClick={() => navigate('/empresa/cadastro')}><Plus className="mr-2"/>Nova Empresa</Button>
+            <Button onClick={() => navigate('/empresa/cadastro')} className="w-full sm:w-auto"><Plus className="mr-2"/>Nova Empresa</Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -144,7 +144,7 @@ export const EmpresaListPage = () => {
                 </FormItem>
               )} />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormField name="city" control={form.control} render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cidade</FormLabel>
@@ -161,7 +161,7 @@ export const EmpresaListPage = () => {
                 )} />
               </div>
 
-              <div className="flex gap-2 justify-end">
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <Button type="button" variant="outline" onClick={() => { setIsOpen(false); setEditingId(null); form.reset(); }}>Cancelar</Button>
                 <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin mr-2"/> : null}Atualizar</Button>
               </div>

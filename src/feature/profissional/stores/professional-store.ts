@@ -8,7 +8,7 @@ interface ProfessionalState {
   loading: boolean;
   error: string | null;
   
-  fetchByCompany: (companyId: number) => Promise<void>;
+  fetchAll: () => Promise<void>;
   fetchById: (id: number) => Promise<void>;
   createProfessional: (payload: CreateProfessionalRequest) => Promise<void>;
   updateProfessional: (id: number, payload: UpdateProfessionalRequest) => Promise<void>;
@@ -24,10 +24,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
       loading: false,
       error: null,
 
-      fetchByCompany: async (companyId: number) => {
+      fetchAll: async () => {
         set({ loading: true, error: null });
         try {
-          const data = await ProfessionalService.getByCompany(companyId);
+          const data = await ProfessionalService.getAll();
           set({ professionals: data, loading: false });
         } catch (err: any) {
           set({

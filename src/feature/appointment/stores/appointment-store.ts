@@ -6,7 +6,7 @@ interface AppointmentState {
   appointments: AppointmentDTO[];
   loading: boolean;
   error: string | null;
-  fetchByCompany: (companyId: number) => Promise<void>;
+  fetchByCompany: () => Promise<void>;
   fetchById: (id: number) => Promise<void>;
   createAppointment: (payload: CreateAppointmentRequest) => Promise<void>;
   updateAppointment: (id: number, payload: UpdateAppointmentRequest) => Promise<void>;
@@ -20,10 +20,10 @@ export const useAppointmentStore = create<AppointmentState>()(
       loading: false,
       error: null,
 
-      fetchByCompany: async (companyId: number) => {
+      fetchByCompany: async () => {
         set({ loading: true, error: null });
         try {
-          const data = await AppointmentService.getByCompany(companyId);
+          const data = await AppointmentService.getByCompany();
           set({ appointments: data, loading: false });
         } catch (err: any) {
           set({ loading: false, error: err?.response?.data?.message ?? "Erro ao carregar agendamentos" });

@@ -1,135 +1,110 @@
 import { useEffect, useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useProductStore } from "../stores/product-store";
 import { useAlert } from "@/hooks/use-alert";
-
-const productSchema = z.object({
-  name: z.string().min(1, "Nome inválido"),
-  description: z.string().optional().or(z.literal("")),
-  price: z.string().optional().or(z.literal("")),
-});
-
-type ProductForm = z.infer<typeof productSchema>;
+import { ProductListPage, type ProductListItem } from "./components/product-list-page";
+import { ProductFormPage, type ProductForm } from "./components/product-form-page";
 
 export const ProductPage = () => {
   const { products, loading, fetchAll, createProduct, updateProduct, deleteProduct } = useProductStore();
   const { showAlert } = useAlert();
+  const [search, setSearch] = useState("");
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const form = useForm<ProductForm>({ resolver: zodResolver(productSchema), defaultValues: { name: "", description: "", price: "" } });
+  const [formInitial, setFormInitial] = useState<ProductForm | undefined>(undefined);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
-  const onSubmit = async (data: ProductForm) => {
+  const handleEdit = (p: ProductListItem) => {
+    setEditingId(p.id);
+    setFormInitial({ name: p.name, description: p.description || "", price: p.price?.toString() || "" });
+    setIsOpen(true);
+  };
+  const handleDelete = async (id: number) => {
+    if (!confirm("Confirmar exclusão?")) return;
+    await deleteProduct(id);
+    showAlert({ title: "Sucesso", message: "Produto excluído", type: "success" });
+  };
+  const handleFormSubmit = async (data: ProductForm) => {
     try {
-      const payload = { name: data.name, description: data.description, price: data.price ? Number(data.price) : undefined };
+      const storedEmpresa = sessionStorage.getItem("empresa-storage");
+      const empresaIdFromStorage = storedEmpresa
+        ? (JSON.parse(storedEmpresa)?.state?.company?.id as number | undefined)
+        : undefined;
+      const companyId = empresaIdFromStorage; 
+      const payload = { name: data.name, description: data.description, price: data.price ? Number(data.price) : undefined, quantity: data.quantity ? Number(data.quantity) : undefined, companyId: companyId };
       if (editingId) {
-        await updateProduct(editingId, payload as any);
+        await updateProduct(editingId, payload);
         showAlert({ title: "Sucesso", message: "Produto atualizado", type: "success" });
       } else {
-        await createProduct(payload as any);
+        await createProduct(payload);
         showAlert({ title: "Sucesso", message: "Produto criado", type: "success" });
       }
       setIsOpen(false);
       setEditingId(null);
-      form.reset();
-    } catch (err) {
+      setFormInitial(undefined);
+    } catch {
       showAlert({ title: "Erro", message: "Falha ao salvar produto", type: "destructive" });
     }
   };
 
-  const handleEdit = (p: any) => { setEditingId(p.id); form.setValue("name", p.name); form.setValue("description", p.description || ""); form.setValue("price", p.price?.toString() || ""); setIsOpen(true); };
-  const handleDelete = async (id: number) => { if (!confirm("Confirmar exclusão?")) return; await deleteProduct(id); showAlert({ title: "Sucesso", message: "Produto excluído", type: "success" }); };
+  const listItems: ProductListItem[] = products
+    .filter((p) => typeof p.id === "number")
+    .map((p) => ({
+      id: p.id as number,
+      name: p.name,
+      description: p.description,
+      price: p.price,
+      quantity: p.quantity,
+    }));
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8">
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>Produtos</CardTitle>
             <CardDescription>Gerencie os produtos</CardDescription>
           </div>
-          <Dialog open={isOpen} onOpenChange={() => { setIsOpen(!isOpen); if (!isOpen) form.reset(); }}>
+          <Dialog
+            open={isOpen}
+            onOpenChange={(open) => {
+              setIsOpen(open);
+              if (!open) {
+                setEditingId(null);
+                setFormInitial(undefined);
+              }
+            }}
+          >
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2"/>Novo Produto</Button>
+              <Button className="w-full sm:w-auto"><Plus className="mr-2" />Novo Produto</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{editingId ? "Editar Produto" : "Novo Produto"}</DialogTitle>
                 <DialogDescription>Preencha os dados</DialogDescription>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField name="name" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="description" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="price" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Preço</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
-                    <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin mr-2"/> : null}{editingId ? "Atualizar" : "Criar"}</Button>
-                  </div>
-                </form>
-              </Form>
+              <ProductFormPage
+                initialValues={formInitial}
+                onSubmit={handleFormSubmit}
+                loading={loading}
+                onCancel={() => setIsOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </CardHeader>
         <CardContent>
-          {products.length === 0 ? (<div className="text-center py-8">Nenhum produto</div>) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Descrição</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {products.map((p) => (
-                  <TableRow key={p.id}>
-                    <TableCell>{p.name}</TableCell>
-                    <TableCell>{p.description || "-"}</TableCell>
-                    <TableCell>{p.price !== undefined ? p.price : "-"}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(p)}><Pencil className="h-4 w-4"/></Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDelete(p.id!)}><Trash2 className="h-4 w-4"/></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ProductListPage
+            products={listItems}
+            loading={loading}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            search={search}
+            onSearchChange={setSearch}
+          />
         </CardContent>
       </Card>
     </div>

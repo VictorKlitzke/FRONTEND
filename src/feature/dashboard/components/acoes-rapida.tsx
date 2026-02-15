@@ -8,10 +8,10 @@ export const AcoesRapidas = () => {
   const quickActions = menuItens.filter(item => item.quick);
 
   return (
-    <Card className="p-6">
+    <Card className="p-4 sm:p-6">
       <h3 className="font-semibold mb-4">Ações Rápidas</h3>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         {quickActions.map((action) => {
           const Icon = action.icon;
 

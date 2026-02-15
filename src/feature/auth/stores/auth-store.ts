@@ -12,6 +12,7 @@ export interface User {
   name: string;
   email: string;
   empresaId?: number;
+  tipoConta?: string;
 }
 
 type AuthState = {

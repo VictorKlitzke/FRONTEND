@@ -46,7 +46,12 @@ export const useClientStore = create<ClientState>()(
         set({ loading: true, error: null });
         try {
           const created = await ClientService.create(payload);
-          set((state) => ({ clients: [...state.clients, created], loading: false }));
+          // Se backend retorna boolean, força reload da listagem
+          if (typeof created === "boolean") {
+            await ClientService.getAll().then((data) => set({ clients: data, loading: false }));
+          } else {
+            set((state) => ({ clients: [...state.clients, created], loading: false }));
+          }
         } catch (err: any) {
           set({ loading: false, error: err?.response?.data?.message ?? "Erro ao criar cliente" });
           throw err;

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-type AlertType = "default" | "destructive" | "success" | "warning";
+type AlertType = "default" | "destructive" | "success" | "warning" | "error";
 
 type AlertState = {
   open: boolean;

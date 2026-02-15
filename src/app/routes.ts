@@ -8,11 +8,16 @@ import { StockMovementRoute } from "@/feature/stockmovement/route";
 import { ClientRoutes } from "@/feature/client/route";
 import { ServiceRoute } from "@/feature/service/route";
 import { ProfissionaisRoute } from "@/feature/profissional/route";
+import { AppointmentPublicRoute, AppointmentRoute } from "@/feature/appointment/route";
+import { PermissionsRoute } from "@/feature/permissions/route";
+import { ConfigRoute } from "@/feature/config/route";
+import { CaseRoute } from "@/feature/case/route";
 
 export const router = createBrowserRouter([
 
   ...AuthRoute,
   ...EmpresaRoute,
+  ...AppointmentPublicRoute,
 
 
   {
@@ -24,7 +29,11 @@ export const router = createBrowserRouter([
       ...ServiceRoute,
       ...ProductRoute,
       ...ClientRoutes,
-      ...StockMovementRoute
+      ...StockMovementRoute,
+      ...AppointmentRoute,
+      ...CaseRoute,
+      ...PermissionsRoute,
+      ...ConfigRoute,
     ],
   },
 ]);

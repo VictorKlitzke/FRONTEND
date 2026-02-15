@@ -1,165 +1,373 @@
-import { useEffect, useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useAppointmentStore } from "../stores/appointment-store";
 import { useAlert } from "@/hooks/use-alert";
-
-const appointmentSchema = z.object({
-  professionalId: z.number().int().min(1),
-  clientId: z.number().int().min(1),
-  serviceId: z.number().int().min(1),
-  startAt: z.string(),
-  durationMinutes: z.number().int().min(1),
-  notes: z.string().optional().or(z.literal("")),
-});
-
-type AppointmentForm = z.infer<typeof appointmentSchema>;
+import { AppointmentCalendar, type CalendarAppointment } from "./components/appointment-calendar";
+import { AppointmentFormModal, type AppointmentFormValues } from "./components/appointment-form-modal";
+import { AppointmentRequestService, type AppointmentRequestDTO } from "../services/appointment-request-service";
+import { useClientStore } from "@/feature/client/stores/client-store";
+import { useProfessionalStore } from "@/feature/profissional/stores/professional-store";
+import { useServiceStore } from "@/feature/service/stores/service-store";
+import { AuthStore } from "@/feature/auth/stores/auth-store";
+import { useSettingsStore } from "@/feature/config/store/settings-store";
+import { getSegmentLabels } from "@/shared/segments/segment-labels";
 
 export const AppointmentPage = () => {
   const { appointments, loading, fetchByCompany, createAppointment, updateAppointment, deleteAppointment } = useAppointmentStore();
   const { showAlert } = useAlert();
+  const { clients, fetchAll: fetchClients } = useClientStore();
+  const { professionals, fetchAll: fetchProfessionals } = useProfessionalStore();
+  const { services, fetchAll: fetchServices } = useServiceStore();
+  const { user } = AuthStore();
+  const { settings } = useSettingsStore();
+  const labels = getSegmentLabels(settings?.segment);
+
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const form = useForm<AppointmentForm>({ resolver: zodResolver(appointmentSchema), defaultValues: { professionalId: 0, clientId: 0, serviceId: 0, startAt: new Date().toISOString(), durationMinutes: 30, notes: "" } });
+  const [initialForm, setInitialForm] = useState<Partial<AppointmentFormValues> | undefined>(undefined);
+  const [pendingRequests, setPendingRequests] = useState<AppointmentRequestDTO[]>([]);
+  const [requestLoading, setRequestLoading] = useState(false);
+  const [approvalOpen, setApprovalOpen] = useState(false);
+  const [approvalRequestId, setApprovalRequestId] = useState<number | null>(null);
+  const [approvalInitialForm, setApprovalInitialForm] = useState<Partial<AppointmentFormValues> | undefined>(undefined);
 
-  useEffect(() => { fetchByCompany(1); }, [fetchByCompany]);
-
-  const onSubmit = async (data: AppointmentForm) => {
+  const loadRequests = async () => {
+    setRequestLoading(true);
     try {
+      const list = await AppointmentRequestService.getAll("PENDING");
+      setPendingRequests(list);
+    } catch {
+      setPendingRequests([]);
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchByCompany();
+    fetchClients();
+    fetchProfessionals();
+    fetchServices();
+    loadRequests();
+  }, [fetchByCompany, fetchClients, fetchProfessionals, fetchServices]);
+
+  const clientOptions = useMemo(
+    () => clients.map((c) => ({ value: c.id ?? 0, label: c.name })),
+    [clients]
+  );
+  const professionalOptions = useMemo(
+    () => professionals.map((p) => ({ value: p.id ?? 0, label: p.name })),
+    [professionals]
+  );
+  const serviceOptions = useMemo(
+    () => services.map((s) => ({ value: s.id ?? 0, label: s.name })),
+    [services]
+  );
+
+  const calendarAppointments: CalendarAppointment[] = useMemo(
+    () => (appointments || []).map((a) => ({
+      id: a.id,
+      startAt: a.startAt,
+      title: `#${a.id ?? ""}`,
+    })),
+    [appointments]
+  );
+
+  const toDateTimeFields = (iso: string) => {
+    const date = new Date(iso);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    return { date: `${yyyy}-${mm}-${dd}`, time: `${hh}:${mi}` };
+  };
+
+  const addMinutes = (iso: string, minutes: number) => {
+    const date = new Date(iso);
+    date.setMinutes(date.getMinutes() + minutes);
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    return `${hh}:${mi}`;
+  };
+
+  const toLocalDate = (dateStr: string, timeStr: string) => {
+    const [y, m, d] = dateStr.split("-").map(Number);
+    const [hh, mm] = timeStr.split(":").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, 0);
+  };
+
+  const parseStartAt = (value?: string) => {
+    if (!value) return new Date("1970-01-01T00:00:00");
+    if (value.includes("T")) return new Date(value);
+    const [datePart, timePart = "00:00:00"] = value.split(" ");
+    const [y, m, d] = datePart.split("-").map(Number);
+    const [hh, mm, ss] = timePart.split(":").map(Number);
+    return new Date(y, (m || 1) - 1, d || 1, hh || 0, mm || 0, ss || 0);
+  };
+
+  const handleNew = (date?: Date) => {
+    const base = date ?? new Date();
+    const baseDate = new Date(base);
+    baseDate.setHours(9, 0, 0, 0);
+    const { date: d, time: t } = toDateTimeFields(baseDate.toISOString());
+    setEditingId(null);
+    setInitialForm({ date: d, startTime: t, endTime: addMinutes(baseDate.toISOString(), 30), notes: "" });
+    setIsOpen(true);
+  };
+
+  const handleEdit = (appointmentId?: number) => {
+    const target = (appointments || []).find((a) => a.id === appointmentId);
+    if (!target || !target.startAt) return;
+    const date = parseStartAt(target.startAt);
+    const yyyy = date.getFullYear();
+    const mm = String(date.getMonth() + 1).padStart(2, "0");
+    const dd = String(date.getDate()).padStart(2, "0");
+    const hh = String(date.getHours()).padStart(2, "0");
+    const mi = String(date.getMinutes()).padStart(2, "0");
+    const baseDate = `${yyyy}-${mm}-${dd}`;
+    const startTime = `${hh}:${mi}`;
+    const endTime = addMinutes(target.startAt, target.durationMinutes ?? 0);
+
+    setEditingId(target.id ?? null);
+    setInitialForm({
+      professionalId: target.professionalId,
+      clientId: target.clientId,
+      serviceId: target.serviceId,
+      date: baseDate,
+      startTime,
+      endTime,
+      notes: target.notes || "",
+    });
+    setIsOpen(true);
+  };
+
+  const handleCancel = async () => {
+    if (!editingId) return;
+    if (!confirm("Cancelar este agendamento?")) return;
+    await deleteAppointment(editingId);
+    showAlert({ title: "Sucesso", message: "Agendamento cancelado", type: "success" });
+    setIsOpen(false);
+    setEditingId(null);
+    setInitialForm(undefined);
+  };
+
+
+  const onSubmit = async (data: AppointmentFormValues) => {
+    try {
+      const storedEmpresa = sessionStorage.getItem("empresa-storage");
+      const empresaIdFromStorage = storedEmpresa
+        ? (JSON.parse(storedEmpresa)?.state?.company?.id as number | undefined)
+        : undefined;
+      const companyId = empresaIdFromStorage ?? user?.empresaId ?? 0;
+
+      const startDate = toLocalDate(data.date, data.startTime);
+      const endDate = toLocalDate(data.date, data.endTime);
+      const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+      const startAt = `${data.date} ${data.startTime}:00`;
+      const endAt = `${data.date} ${data.endTime}:00`;
+      const now = new Date();
+      if (startDate.getTime() < now.getTime()) {
+        showAlert({ title: "Erro", message: "Não é permitido agendar em datas passadas", type: "destructive" });
+        return;
+      }
+
+      const hasConflict = (appointments || []).some((a) => {
+        if (!a.startAt) return false;
+        if (editingId && a.id === editingId) return false;
+        const existingStart = parseStartAt(a.startAt).getTime();
+        const existingEnd = existingStart + (a.durationMinutes ?? 0) * 60000;
+        const newStart = startDate.getTime();
+        const newEnd = endDate.getTime();
+        return newStart < existingEnd && newEnd > existingStart;
+      });
+
+      if (hasConflict) {
+        showAlert({ title: "Erro", message: "Já existe um agendamento nesse horário", type: "destructive" });
+        return;
+      }
+      const payload = {
+        companyId, professionalId: data.professionalId,
+        clientId: data.clientId,
+        serviceId: data.serviceId,
+        startAt,
+        endAt,
+        durationMinutes,
+        notes: data.notes,
+      };
+
       if (editingId) {
-        await updateAppointment(editingId, { ...data, companyId: 1 });
+        await updateAppointment(editingId, payload);
         showAlert({ title: "Sucesso", message: "Agendamento atualizado", type: "success" });
       } else {
-        await createAppointment({ ...data, companyId: 1 });
+        await createAppointment(payload);
         showAlert({ title: "Sucesso", message: "Agendamento criado", type: "success" });
       }
       setIsOpen(false);
       setEditingId(null);
-      form.reset();
-    } catch (err) {
+      setInitialForm(undefined);
+    } catch {
       showAlert({ title: "Erro", message: "Falha ao salvar agendamento", type: "destructive" });
     }
   };
 
-  const handleEdit = (a: any) => { setEditingId(a.id); form.setValue("professionalId", a.professionalId); form.setValue("clientId", a.clientId); form.setValue("serviceId", a.serviceId); form.setValue("startAt", a.startAt); form.setValue("durationMinutes", a.durationMinutes); form.setValue("notes", a.notes || ""); setIsOpen(true); };
-  const handleDelete = async (id: number) => { if (!confirm("Confirmar exclusão?")) return; await deleteAppointment(id); showAlert({ title: "Sucesso", message: "Agendamento excluído", type: "success" }); };
+  const handleApprove = (request: AppointmentRequestDTO) => {
+    const baseDate = request.preferred_date || "";
+    const baseTime = request.preferred_time || "";
+    const startAtIso = baseDate && baseTime ? `${baseDate} ${baseTime}:00` : undefined;
+    const endTime = startAtIso ? addMinutes(startAtIso, 30) : "";
+
+    setApprovalRequestId(request.id);
+    setApprovalInitialForm({
+      date: baseDate,
+      startTime: baseTime,
+      endTime,
+      serviceId: request.service_id ?? 0,
+      clientId: request.client_id ?? 0,
+      notes: request.notes ?? "",
+    });
+    setApprovalOpen(true);
+  };
+
+  const handleReject = async (requestId: number) => {
+    try {
+      await AppointmentRequestService.reject(requestId);
+      showAlert({ title: "Sucesso", message: "Solicitação recusada", type: "success" });
+      await loadRequests();
+    } catch {
+      showAlert({ title: "Erro", message: "Falha ao recusar solicitação", type: "destructive" });
+    }
+  };
+
+  const handleApproveSubmit = async (data: AppointmentFormValues) => {
+    if (!approvalRequestId) return;
+    try {
+      const startAt = `${data.date} ${data.startTime}:00`;
+      const endAt = `${data.date} ${data.endTime}:00`;
+      const startDate = toLocalDate(data.date, data.startTime);
+      const endDate = toLocalDate(data.date, data.endTime);
+      const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
+
+      await AppointmentRequestService.approve(approvalRequestId, {
+        professionalId: data.professionalId,
+        clientId: data.clientId,
+        serviceId: data.serviceId,
+        startAt,
+        endAt,
+        durationMinutes,
+        notes: data.notes ?? null,
+      });
+
+      showAlert({ title: "Sucesso", message: "Solicitação aprovada", type: "success" });
+      setApprovalOpen(false);
+      setApprovalRequestId(null);
+      setApprovalInitialForm(undefined);
+      await loadRequests();
+      await fetchByCompany();
+    } catch {
+      showAlert({ title: "Erro", message: "Falha ao aprovar solicitação", type: "destructive" });
+    }
+  };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="h-full flex flex-col">
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Agendamentos</CardTitle>
-            <CardDescription>Gerencie os agendamentos</CardDescription>
+            <CardTitle>{labels.appointments.plural}</CardTitle>
+            <CardDescription>Calendário em tela cheia com criação rápida</CardDescription>
           </div>
-          <Dialog open={isOpen} onOpenChange={() => { setIsOpen(!isOpen); if (!isOpen) form.reset(); }}>
-            <DialogTrigger asChild>
-              <Button><Plus className="mr-2"/>Novo Agendamento</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Editar Agendamento" : "Novo Agendamento"}</DialogTitle>
-                <DialogDescription>Preencha os dados</DialogDescription>
-              </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField name="professionalId" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Profissional (ID)</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
 
-                  <FormField name="clientId" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Cliente (ID)</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="serviceId" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Serviço (ID)</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="startAt" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Data e hora</FormLabel>
-                      <FormControl><Input type="datetime-local" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="durationMinutes" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duração (min)</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="notes" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Observações (opcional)</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
-                    <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin mr-2"/> : null}{editingId ? "Atualizar" : "Criar"}</Button>
-                  </div>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
         </CardHeader>
         <CardContent>
-          {appointments.length === 0 ? (<div className="text-center py-8">Nenhum agendamento</div>) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Profissional</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Serviço</TableHead>
-                  <TableHead>Início</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {appointments.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.professionalId}</TableCell>
-                    <TableCell>{a.clientId}</TableCell>
-                    <TableCell>{a.serviceId}</TableCell>
-                    <TableCell>{new Date(a.startAt).toLocaleString()}</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(a)}><Pencil className="h-4 w-4"/></Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDelete(a.id!)}><Trash2 className="h-4 w-4"/></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <div className="h-auto md:h-[calc(100vh-16rem)]">
+            <AppointmentCalendar
+              currentMonth={currentMonth}
+              appointments={calendarAppointments}
+              onMonthChange={setCurrentMonth}
+              onSelectDate={handleNew}
+              onSelectAppointment={handleEdit}
+            />
+          </div>
         </CardContent>
       </Card>
+
+      <Card className="mt-6">
+        <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <CardTitle>Solicitações de {labels.appointments.singular.toLowerCase()}</CardTitle>
+            <CardDescription>Pedidos enviados por clientes</CardDescription>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {requestLoading ? (
+            <div className="text-sm text-muted-foreground">Carregando...</div>
+          ) : pendingRequests.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Nenhuma solicitação pendente.</div>
+          ) : (
+            <div className="space-y-3">
+              {pendingRequests.map((req) => (
+                <div key={req.id} className="rounded-lg border p-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <div className="text-sm font-medium">{req.client_name}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {req.preferred_date} {req.preferred_time}
+                    </div>
+                    {req.notes ? (
+                      <div className="text-xs text-muted-foreground">{req.notes}</div>
+                    ) : null}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => handleReject(req.id)}>Recusar</Button>
+                    <Button onClick={() => handleApprove(req)}>Aprovar</Button>
+                  </div>
+                </div>
+              ))}
+              title={editingId ? `Editar ${labels.appointments.singular.toLowerCase()}` : `Novo ${labels.appointments.singular.toLowerCase()}`}
+              description={`Selecione cliente, ${labels.professionals.singular.toLowerCase()}, ${labels.services.singular.toLowerCase()} e horário`}
+        </CardContent>
+      </Card>
+
+      <AppointmentFormModal
+        open={isOpen}
+        onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setEditingId(null);
+            setInitialForm(undefined);
+          }
+        }}
+        title={editingId ? "Editar agendamento" : "Novo agendamento"}
+        description="Selecione cliente, profissional, serviço e horário"
+        initialValues={initialForm}
+        professionals={professionalOptions}
+        clients={clientOptions}
+        services={serviceOptions}
+        loading={loading}
+        onSubmit={onSubmit}
+        onCancelAppointment={editingId ? handleCancel : undefined}
+      />
+
+      <AppointmentFormModal
+        open={approvalOpen}
+        onOpenChange={(open) => {
+          setApprovalOpen(open);
+          if (!open) {
+            setApprovalRequestId(null);
+            setApprovalInitialForm(undefined);
+          }
+        }}
+        title="Aprovar solicitação"
+        description="Defina cliente, profissional e horário"
+        initialValues={approvalInitialForm}
+        professionals={professionalOptions}
+        clients={clientOptions}
+        services={serviceOptions}
+        loading={loading}
+        onSubmit={handleApproveSubmit}
+      />
     </div>
   );
 };

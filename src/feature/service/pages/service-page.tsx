@@ -1,47 +1,58 @@
 import { useEffect, useState } from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { useServiceStore } from "../stores/service-store";
 import { useAlert } from "@/hooks/use-alert";
-import type { ServiceDTO } from "../services/service-service";
-import { ProductService } from "../../product/services/product-service";
-
-const serviceSchema = z.object({
-  name: z.string().min(2, "Nome inválido"),
-  description: z.string().optional().or(z.literal("")),
-  price: z.number().min(0),
-  durationMinutes: z.number().int().min(1),
-  productIds: z.array(z.number()).optional(),
-});
-
-type ServiceForm = z.infer<typeof serviceSchema>;
+import { ServiceFormPage, type ServiceForm } from "./components/service-form-page";
+import { ServiceListPage, type ServiceListItem } from "./components/service-list-page";
+import { useSettingsStore } from "@/feature/config/store/settings-store";
+import { getSegmentLabels } from "@/shared/segments/segment-labels";
 
 export const ServicePage = () => {
-  const { services, loading, fetchByCompany, createService, updateService, deleteService } = useServiceStore();
+  const { services, loading, fetchAll, createService, updateService, deleteService } = useServiceStore();
   const { showAlert } = useAlert();
+  const { settings } = useSettingsStore();
+  const labels = getSegmentLabels(settings?.segment);
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
-  const [availableProducts, setAvailableProducts] = useState<any[]>([]);
-  const form = useForm<ServiceForm>({ resolver: zodResolver(serviceSchema), defaultValues: { name: "", description: "", price: 0, durationMinutes: 30, productIds: [] } });
+  const [search, setSearch] = useState("");
+  const [formInitial, setFormInitial] = useState<ServiceForm | undefined>(undefined);
 
-  useEffect(() => { fetchByCompany(1); loadProducts(); }, [fetchByCompany]);
+  useEffect(() => { fetchAll() }, [fetchAll]);
 
-  const loadProducts = async () => {
-    const prods = await ProductService.getAll();
-    setAvailableProducts(prods.map((p: any) => ({ value: p.id, label: p.name })));
+
+  const handleEdit = (s: ServiceListItem) => {
+    setEditingId(s.id);
+    setFormInitial({
+      name: s.name,
+      description: s.description || "",
+      price: s.price,
+      durationMinutes: s.durationMinutes,
+      products: [],
+    });
+    setIsOpen(true);
   };
 
-  const onSubmit = async (data: ServiceForm) => {
+  const handleDelete = async (id: number) => {
+    if (!confirm("Confirmar exclusão?")) return;
+    await deleteService(id);
+    showAlert({ title: "Sucesso", message: "Serviço excluído", type: "success" });
+  };
+
+  const handleFormSubmit = async (data: ServiceForm) => {
+    const storedEmpresa = sessionStorage.getItem("empresa-storage");
+    const empresaIdFromStorage = storedEmpresa
+      ? (JSON.parse(storedEmpresa)?.state?.company?.id as number | undefined)
+      : undefined;
+    const companyId = empresaIdFromStorage;
+    if (!companyId) {
+      showAlert({ title: "Erro", message: "Empresa não encontrada", type: "destructive" });
+      return;
+    }
     try {
-      const payload = { ...data, companyId: 1, productIds: data.productIds || [] } as any;
+      const payload = { ...data, companyId, products: data.products || [] };
       if (editingId) {
         await updateService(editingId, payload);
         showAlert({ title: "Sucesso", message: "Serviço atualizado", type: "success" });
@@ -51,141 +62,78 @@ export const ServicePage = () => {
       }
       setIsOpen(false);
       setEditingId(null);
-      form.reset();
-    } catch (err) {
+      setFormInitial(undefined);
+    } catch {
       showAlert({ title: "Erro", message: "Falha ao salvar serviço", type: "destructive" });
     }
   };
 
-  const handleEdit = (s: any) => {
-    setEditingId(s.id);
-    form.setValue("name", s.name);
-    form.setValue("description", s.description || "");
-    form.setValue("price", s.price);
-    form.setValue("durationMinutes", s.durationMinutes);
-    form.setValue("productIds", s.productIds || []);
+  const handleNew = () => {
+    setEditingId(null);
+    setFormInitial(undefined);
     setIsOpen(true);
   };
-  const handleDelete = async (id: number) => { if (!confirm("Confirmar exclusão?")) return; await deleteService(id); showAlert({ title: "Sucesso", message: "Serviço excluído", type: "success" }); };
 
   return (
-    <div className="container mx-auto py-8">
+    <div className="container mx-auto px-4 py-6 sm:py-8">
       <Card>
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle>Serviços</CardTitle>
-            <CardDescription>Gerencie os serviços</CardDescription>
+            <CardTitle>{labels.services.plural}</CardTitle>
+            <CardDescription>Gerencie os {labels.services.plural.toLowerCase()}</CardDescription>
           </div>
-          <Dialog open={isOpen} onOpenChange={() => { setIsOpen(!isOpen); if (!isOpen) form.reset(); }}>
+          <Dialog open={isOpen} onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) {
+              setEditingId(null);
+              setFormInitial(undefined);
+            }
+          }}>
             <DialogTrigger asChild>
-              <Button><Plus className="mr-2"/>Novo Serviço</Button>
+              <Button onClick={handleNew} className="w-full sm:w-auto"><Plus className="mr-2" />Novo {labels.services.singular}</Button>
             </DialogTrigger>
             <DialogContent>
               <DialogHeader>
-                <DialogTitle>{editingId ? "Editar Serviço" : "Novo Serviço"}</DialogTitle>
+                <DialogTitle>{editingId ? `Editar ${labels.services.singular}` : `Novo ${labels.services.singular}`}</DialogTitle>
                 <DialogDescription>Preencha os dados</DialogDescription>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                  <FormField name="name" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Nome</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="description" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Descrição</FormLabel>
-                      <FormControl><Input {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="price" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Preço</FormLabel>
-                      <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-
-                  <FormField name="durationMinutes" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Duração (min)</FormLabel>
-                      <FormControl><Input type="number" {...field} /></FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-                  
-                  <FormField name="productIds" control={form.control} render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Produtos</FormLabel>
-                      <FormControl>
-                        <div className="flex flex-wrap gap-2">
-                          {availableProducts.map((p) => {
-                            const selected = Array.isArray(field.value) && field.value.includes(p.value);
-                            return (
-                              <Button
-                                key={p.value}
-                                type="button"
-                                size="sm"
-                                variant={selected ? "default" : "outline"}
-                                onClick={() => {
-                                  const current = Array.isArray(field.value) ? [...field.value] : [];
-                                  const idx = current.indexOf(p.value);
-                                  if (idx === -1) current.push(p.value);
-                                  else current.splice(idx, 1);
-                                  field.onChange(current);
-                                }}
-                              >
-                                {p.label}
-                              </Button>
-                            );
-                          })}
-                        </div>
-                      </FormControl>
-                      <FormMessage/>
-                    </FormItem>
-                  )} />
-                  <div className="flex gap-2 justify-end">
-                    <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>Cancelar</Button>
-                    <Button type="submit" disabled={loading}>{loading ? <Loader2 className="animate-spin mr-2"/> : null}{editingId ? "Atualizar" : "Criar"}</Button>
-                  </div>
-                </form>
-              </Form>
+              <ServiceFormPage
+                initialValues={formInitial}
+                onSubmit={handleFormSubmit}
+                loading={loading}
+                onCancel={() => setIsOpen(false)}
+              />
             </DialogContent>
           </Dialog>
         </CardHeader>
         <CardContent>
-          {services.length === 0 ? (<div className="text-center py-8">Nenhum serviço</div>) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nome</TableHead>
-                  <TableHead>Preço</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {services.map((s: ServiceDTO) => (
-                  <TableRow key={s.id}>
-                    <TableCell>{s.name}</TableCell>
-                    <TableCell>{s.price.toFixed(2)}</TableCell>
-                    <TableCell>{s.durationMinutes} min</TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex gap-2 justify-end">
-                        <Button variant="outline" size="icon" onClick={() => handleEdit(s)}><Pencil className="h-4 w-4"/></Button>
-                        <Button variant="destructive" size="icon" onClick={() => handleDelete(s.id!)}><Trash2 className="h-4 w-4"/></Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
+          <ServiceListPage
+            services={Array.isArray(services)
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              ? services.map((s: any) => {
+                const name = s.name ?? s.nome ?? "";
+                const description = s.description ?? s["descrição"] ?? s.descricao ?? "";
+                const priceRaw = s.price ?? s.preço ?? s.preco ?? 0;
+                const price = typeof priceRaw === "number" ? priceRaw : (typeof priceRaw === "string" ? parseFloat(priceRaw) || 0 : 0);
+                const durationRaw = s.durationMinutes ?? s["duração_minutos"] ?? s.duracao_minutos ?? s.duration_minutes;
+                const durationMinutes = durationRaw === undefined || durationRaw === null
+                  ? 0
+                  : (typeof durationRaw === "string" ? parseInt(durationRaw, 10) : Number(durationRaw));
+                return {
+                  id: s.id ?? s.ID ?? 0,
+                  name,
+                  description,
+                  price,
+                  durationMinutes,
+                };
+              })
+              : []}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            loading={loading}
+            search={search}
+            onSearchChange={setSearch}
+          />
         </CardContent>
       </Card>
     </div>

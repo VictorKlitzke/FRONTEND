@@ -1,5 +1,5 @@
 import { Eye, EyeOff, Calendar } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "../../../components/ui/button"
 import { Input } from "../../../components/ui/input"
 import { Card, CardContent } from "../../../components/ui/card"
@@ -12,12 +12,18 @@ import { useNavigate } from "react-router-dom"
 export default function AuthPage() {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false)
-  const { onLogin, loading } = AuthStore()
+  const { onLogin, loading, token } = AuthStore()
   const { fetchByUserId } = useEmpresaStore();
 
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const { showAlert } = useAlert();
+
+  useEffect(() => {
+    if (token) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate, token]);
 
   async function handleLogin() {
     if (email == "" || password == "") {
@@ -34,20 +40,16 @@ export default function AuthPage() {
       const user = AuthStore.getState().user
 
       console.log('user', user);
+      const company = await fetchByUserId(user!.id)
 
-      if (!user || !user.id) {
-        navigate('/empresa/cadastro')
+      console.log('company', company);
+
+      if (company) {
+        navigate('/dashboard', { replace: true })
         return
       }
 
-      const company = await fetchByUserId(user.id)
-
-      if (company && company.active) {
-        navigate('/dashboard')
-        return
-      }
-
-      navigate('/empresa/cadastro')
+      navigate('/empresa/cadastro', { replace: true })
 
     } catch (error) {
       showAlert({
@@ -71,7 +73,7 @@ export default function AuthPage() {
         <div className="w-full max-w-md space-y-6">
 
           <div className="flex items-center gap-2">
-            <div className="bg-teal-500 p-2 rounded-lg text-white">
+            <div className="bg-primary p-2 rounded-lg text-primary-foreground">
               <Calendar size={20} />
             </div>
             <span className="text-xl font-semibold">AgendaPro</span>
@@ -97,7 +99,7 @@ export default function AuthPage() {
             <div className="space-y-1">
               <div className="flex justify-between">
                 <label className="text-sm font-medium">Senha</label>
-                <button className="text-sm text-teal-600 hover:underline">
+                <button className="text-sm text-primary hover:underline">
                   Esqueceu a senha?
                 </button>
               </div>
@@ -119,29 +121,16 @@ export default function AuthPage() {
               </div>
             </div>
 
-            <Button
-              className="w-full bg-teal-500 hover:bg-teal-600"
-              onClick={handleLogin}
-              disabled={loading}
-            >
+            <Button className="w-full" onClick={handleLogin} disabled={loading}>
               {loading ? "Entrando..." : "Entrar"}
             </Button>
           </div>
 
-          <div className="flex items-center gap-4">
-            <Separator className="flex-1" />
-            <span className="text-xs text-muted-foreground">ou continue com</span>
-            <Separator className="flex-1" />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <Button variant="outline">Google</Button>
-            <Button variant="outline">GitHub</Button>
-          </div>
+          <Separator className="my-6" />
 
           <p className="text-center text-sm">
             Não tem uma conta?{" "}
-            <Button onClick={onRegister} className="">
+            <Button onClick={onRegister} variant="link">
               Registre-se grátis
             </Button>
           </p>

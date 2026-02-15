@@ -40,7 +40,7 @@ const registerSchema = z
         email: z.string().email("E-mail inválido"),
         password: z.string().min(6, "A senha deve ter pelo menos 6 caracteres"),
         confirmPassword: z.string(),
-        role: z.enum(["client", "professional", "manager"]),
+        role: z.enum(["cliente", "profissional", "admin"]),
         cnpjcpf: z.string().min(11, "Documento inválido"),
         phone: z.string().min(10, "Telefone inválido"),
     })
@@ -64,7 +64,7 @@ export const RegisterPage = () => {
             email: "",
             password: "",
             confirmPassword: "",
-            role: "client",
+            role: "cliente",
             cnpjcpf: "",
             phone: "",
         },
@@ -74,10 +74,6 @@ export const RegisterPage = () => {
         setIsLoading(true);
         try {
             const {...payload } = data;
-            // map frontend role values to backend expected values
-            if (payload.role === "client") payload.role = "cliente" as any;
-            if (payload.role === "professional") payload.role = "profissional" as any;
-            if (payload.role === "manager") payload.role = "gerente" as any;
             await onRegister(payload as any);
             showAlert({
                 title: "Conta criada com sucesso",
@@ -201,9 +197,9 @@ export const RegisterPage = () => {
                                                         {...field}
                                                         className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm pl-10"
                                                     >
-                                                        <option value="client">Cliente</option>
-                                                        <option value="professional">Profissional</option>
-                                                        <option value="manager">Gerente</option>
+                                                        <option value="cliente">Cliente</option>
+                                                        <option value="profissional">Profissional</option>
+                                                        <option value="admin">Administrador</option>
                                                     </select>
                                                 </div>
                                             </FormControl>

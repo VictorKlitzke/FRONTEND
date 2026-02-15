@@ -1,11 +1,8 @@
 import axios from "axios";
+import { AuthStore } from "@/feature/auth/stores/auth-store";
 
-const rawEnv = import.meta.env.VITE_MS_API ?? "http://127.0.0.1:8080";
-let sanitizedBase = rawEnv.endsWith("/") ? rawEnv.slice(0, -1) : rawEnv;
-
-if (sanitizedBase.endsWith("/api")) {
-  sanitizedBase = sanitizedBase.slice(0, -4);
-}
+const rawEnv = import.meta.env.VITE_MS_API;
+const sanitizedBase = rawEnv.endsWith("/") ? rawEnv.slice(0, -1) : rawEnv;
 
 export const api = axios.create({
   baseURL: `${sanitizedBase}/`,
@@ -16,7 +13,6 @@ export const api = axios.create({
 
 api.interceptors.request.use((config) => {
   const storage = sessionStorage.getItem("auth-storage");
-
   if (storage) {
     const { state } = JSON.parse(storage);
     if (state?.token) {
@@ -24,6 +20,18 @@ api.interceptors.request.use((config) => {
       config.headers.Authorization = `Bearer ${state.token}`;
     }
   }
-
   return config;
 });
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401 || status === 403) {
+      const { logout } = AuthStore.getState();
+      logout();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  }
+);

@@ -26,7 +26,7 @@ export class EmpresaService {
 
     static async getByUserId(userId: number): Promise<EmpresaDTO | null> {
         const { data } = await api.get(`/companies/user/${userId}`);
-        return data.data;
+        return data.data ?? null;
     }
 
     static async update(id: number, data: Omit<EmpresaDTO, "userId" | "id">): Promise<EmpresaDTO> {
