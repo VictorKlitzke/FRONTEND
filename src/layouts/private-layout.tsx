@@ -9,7 +9,7 @@ import { BillingService } from "@/feature/billing/services/billing-service"
 export const PrivateLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { token, logout } = AuthStore();
+  const { token, logout, user } = AuthStore();
 
   useEffect(() => {
     if (!token) return;
@@ -43,7 +43,11 @@ export const PrivateLayout = () => {
 
   useEffect(() => {
     if (!token) return;
+    if (user?.tipoConta?.toLowerCase() === "administrador") return;
     if (location.pathname === "/planos") return;
+
+    const searchParams = new URLSearchParams(location.search);
+    const successCheckout = searchParams.get("success") === "1";
 
     const checkPlan = async () => {
       try {
@@ -58,8 +62,35 @@ export const PrivateLayout = () => {
       }
     };
 
+    if (successCheckout) {
+      let attempts = 0;
+      const maxAttempts = 6; // ~12s
+
+      const pollStatus = async () => {
+        attempts += 1;
+        try {
+          const status = await BillingService.getStatus();
+          const planStatus = status?.plan?.status ?? "";
+          const isActive = planStatus === "active" || planStatus === "trialing";
+          if (isActive) return;
+        } catch {
+          // ignore and retry
+        }
+
+        if (attempts >= maxAttempts) {
+          navigate("/planos", { replace: true });
+          return;
+        }
+
+        setTimeout(pollStatus, 2000);
+      };
+
+      pollStatus();
+      return;
+    }
+
     checkPlan();
-  }, [location.pathname, navigate, token]);
+  }, [location.pathname, location.search, navigate, token, user?.tipoConta]);
 
 
   return (
