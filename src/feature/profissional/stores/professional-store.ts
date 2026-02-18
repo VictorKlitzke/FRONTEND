@@ -30,9 +30,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
           const data = await ProfessionalService.getAll();
           set({ professionals: data, loading: false });
         } catch (err: any) {
+          const apiMessage = err?.response?.data?.data?.message ?? err?.response?.data?.message;
           set({
             loading: false,
-            error: err?.response?.data?.message ?? "Erro ao carregar profissionais",
+            error: apiMessage ?? "Erro ao carregar profissionais",
           });
         }
       },
@@ -43,9 +44,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
           const data = await ProfessionalService.getById(id);
           set({ selectedProfessional: data, loading: false });
         } catch (err: any) {
+          const apiMessage = err?.response?.data?.data?.message ?? err?.response?.data?.message;
           set({
             loading: false,
-            error: err?.response?.data?.message ?? "Erro ao carregar profissional",
+            error: apiMessage ?? "Erro ao carregar profissional",
           });
         }
       },
@@ -59,9 +61,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
             loading: false,
           }));
         } catch (err: any) {
+          const apiMessage = err?.response?.data?.data?.message ?? err?.response?.data?.message;
           set({
             loading: false,
-            error: err?.response?.data?.message ?? "Erro ao criar profissional",
+            error: apiMessage ?? "Erro ao criar profissional",
           });
           throw err;
         }
@@ -77,9 +80,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
             loading: false,
           }));
         } catch (err: any) {
+          const apiMessage = err?.response?.data?.data?.message ?? err?.response?.data?.message;
           set({
             loading: false,
-            error: err?.response?.data?.message ?? "Erro ao atualizar profissional",
+            error: apiMessage ?? "Erro ao atualizar profissional",
           });
           throw err;
         }
@@ -95,9 +99,10 @@ export const useProfessionalStore = create<ProfessionalState>()(
             loading: false,
           }));
         } catch (err: any) {
+          const apiMessage = err?.response?.data?.data?.message ?? err?.response?.data?.message;
           set({
             loading: false,
-            error: err?.response?.data?.message ?? "Erro ao excluir profissional",
+            error: apiMessage ?? "Erro ao excluir profissional",
           });
           throw err;
         }

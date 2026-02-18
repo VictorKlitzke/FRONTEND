@@ -60,7 +60,7 @@ export const AppAlert = () => {
   const Icon = config.icon;
 
   return (
-    <div className="fixed top-6 right-6 z-50 max-w-sm animate-in slide-in-from-top-2 fade-in duration-300">
+    <div className="fixed top-6 right-6 z-100 max-w-sm animate-in slide-in-from-top-2 fade-in duration-300">
       <Alert
         className={cn(
           "relative flex items-start gap-4 shadow-xl backdrop-blur-md p-4",

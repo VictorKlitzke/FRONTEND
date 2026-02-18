@@ -26,6 +26,15 @@ import { useSettingsStore } from "@/feature/config/store/settings-store";
 import { getSegmentLabels } from "@/shared/segments/segment-labels";
 
 export const ProfessionalPage = () => {
+  const getApiMessage = (error: unknown): string | undefined => {
+    if (error && typeof error === "object" && "response" in error) {
+      type RespShape = { data?: { data?: { message?: string }; message?: string } };
+      const resp = (error as { response?: RespShape }).response;
+      const data = resp?.data;
+      return data?.data?.message ?? data?.message;
+    }
+    return undefined;
+  };
   const { showAlert } = useAlert();
   const { settings } = useSettingsStore();
   const labels = getSegmentLabels(settings?.segment);
@@ -50,7 +59,15 @@ export const ProfessionalPage = () => {
 
   const onSubmit = async (data: ProfissionalForm) => {
     try {
-      const companyId = 1; // TODO: pegar companyId real
+      const storedEmpresa = sessionStorage.getItem("empresa-storage");
+      const empresaIdFromStorage = storedEmpresa
+        ? (JSON.parse(storedEmpresa)?.state?.company?.id as number | undefined)
+        : undefined;
+      const companyId = empresaIdFromStorage;
+      if (!companyId) {
+        showAlert({ title: "Erro", message: "Empresa não encontrada", type: "destructive" });
+        return;
+      }
       if (editingId) {
         await updateProfessional(editingId, { ...data, companyId });
         showAlert({
@@ -69,10 +86,11 @@ export const ProfessionalPage = () => {
       setIsDialogOpen(false);
       setEditingId(null);
       setFormInitial(undefined);
-    } catch (error) {
+    } catch (error: unknown) {
+      const apiMessage = getApiMessage(error);
       showAlert({
         title: "Erro",
-        message: "Erro ao salvar profissional",
+        message: apiMessage ?? "Erro ao salvar profissional",
         type: "destructive",
       });
     }
@@ -80,12 +98,12 @@ export const ProfessionalPage = () => {
 
   const filteredProfessionals: ProfissionalListItem[] = Array.isArray(professionals)
     ? professionals.map((p) => ({
-        id: p.id ?? 0,
-        name: p.name ?? "",
-        email: p.email ?? "",
-        phone: p.phone ?? "",
-        specialty: p.specialty ?? "",
-      }))
+      id: p.id ?? 0,
+      name: p.name ?? "",
+      email: p.email ?? "",
+      phone: p.phone ?? "",
+      specialty: p.specialty ?? "",
+    }))
     : [];
 
   const handleEdit = (professional: ProfissionalListItem) => {
@@ -108,10 +126,11 @@ export const ProfessionalPage = () => {
         message: "Profissional excluído com sucesso",
         type: "success",
       });
-    } catch (error) {
+    } catch (error: unknown) {
+      const apiMessage = getApiMessage(error);
       showAlert({
         title: "Erro",
-        message: "Erro ao excluir profissional",
+        message: apiMessage ?? "Erro ao excluir profissional",
         type: "destructive",
       });
     }
