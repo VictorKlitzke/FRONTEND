@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import type { SettingsDTO } from "@/feature/config/services/settings-service";
+import PublicLinkGenerator from "./public-link-generator";
 
 interface CompanyTabProps {
   settings: SettingsDTO;
@@ -62,6 +63,8 @@ export const CompanyTab = ({ settings, onChange }: CompanyTabProps) => (
         </div>
       </div>
       <Separator />
+      {/* Public link generator */}
+      <PublicLinkGenerator settings={settings} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-sm font-medium">Logo da empresa</p>

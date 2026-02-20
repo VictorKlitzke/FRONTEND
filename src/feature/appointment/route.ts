@@ -14,4 +14,8 @@ export const AppointmentPublicRoute: RouteObject[] = [
     path: '/solicitar-agendamento',
     Component: PublicAppointmentRequestPage,
   },
+  {
+    path: '/public/appointment',
+    Component: PublicAppointmentRequestPage,
+  },
 ];

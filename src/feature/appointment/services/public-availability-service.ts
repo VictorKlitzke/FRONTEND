@@ -10,6 +10,22 @@ export interface PublicCompanyInfo {
     public_slot_minutes?: number | null;
     public_working_days?: string | null;
   };
+  services?: PublicServiceItem[];
+  professionals?: PublicProfessionalItem[];
+}
+
+export interface PublicServiceItem {
+  id: number;
+  service_name: string;
+  price?: number | null;
+  duration?: number | null;
+}
+
+export interface PublicProfessionalItem {
+  id: number;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
 }
 
 export type PublicCompanyItem = Pick<PublicCompanyInfo, "id" | "name">;
@@ -27,9 +43,11 @@ export class PublicAvailabilityService {
     return Array.isArray(list) ? list : [];
   }
 
-  static async getAvailableSlots(companyId: number, date: string): Promise<string[]> {
+  static async getAvailableSlots(companyId: number, date: string, professionalId?: number): Promise<string[]> {
+    const params: any = { companyId, date };
+    if (professionalId) params.professionalId = professionalId;
     const { data } = await api.get(`/appointment-requests/public/availability`, {
-      params: { companyId, date },
+      params,
     });
     const list = data?.dados ?? data?.data ?? data;
     return Array.isArray(list) ? list : [];

@@ -39,6 +39,7 @@ export class AppointmentRequestService {
     clientEmail?: string;
     clientPhone?: string;
     serviceId?: number;
+    professionalId?: number;
     preferredDate: string;
     preferredTime: string;
     notes?: string;
