@@ -5,14 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { useEffect, useState } from "react";
-import { ProductService, type ProductDTO } from "@/feature/product/services/product-service";
 
 const serviceSchema = z.object({
 	name: z.string().min(2, "Nome inválido"),
 	description: z.string().optional().or(z.literal("")),
 	price: z.coerce.number().min(0),
 	durationMinutes: z.coerce.number().int().min(1),
-	products: z.array(z.number()).optional(),
 });
 
 export type ServiceForm = z.infer<typeof serviceSchema>;
@@ -30,14 +28,8 @@ export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: 
 		defaultValues: initialValues || { name: "", description: "", price: 0, durationMinutes: 30, products: [] },
 	});
 
-	const [products, setProducts] = useState<ProductDTO[]>([]);
-
 	useEffect(() => {
-		let mounted = true;
-		ProductService.getAll().then((res) => {
-			if (mounted) setProducts(res || []);
-		});
-		return () => { mounted = false; };
+		// no-op: products selection removed
 	}, []);
 
 	return (
@@ -56,42 +48,7 @@ export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: 
 						</FormItem>
 					)}
 				/>
-				<FormField
-					control={form.control}
-					name="products"
-					render={({ field }) => (
-						<FormItem>
-							<FormLabel>Produtos</FormLabel>
-							<FormControl>
-								<div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-40 overflow-auto border rounded p-2">
-									{products.length === 0 ? (
-										<div className="col-span-2 text-sm text-muted-foreground">Nenhum produto</div>
-									) : (
-										products.map((p) => (
-											<label key={p.id} className="flex items-center gap-2">
-												<input
-													type="checkbox"
-													checked={Array.isArray(field.value) && field.value.includes(p.id as number)}
-													onChange={(e) => {
-														const current = Array.isArray(field.value) ? [...field.value] : [];
-														if (e.target.checked) current.push(p.id as number);
-														else {
-															const idx = current.indexOf(p.id as number);
-															if (idx >= 0) current.splice(idx, 1);
-														}
-														field.onChange(current);
-													}}
-												/>
-												<span className="text-sm">{p.name}</span>
-											</label>
-										))
-									)}
-								</div>
-							</FormControl>
-							<FormMessage />
-						</FormItem>
-					)}
-				/>
+                
 				<FormField
 					control={form.control}
 					name="description"

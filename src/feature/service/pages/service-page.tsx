@@ -30,7 +30,6 @@ export const ServicePage = () => {
       description: s.description || "",
       price: s.price,
       durationMinutes: s.durationMinutes,
-      products: [],
     });
     setIsOpen(true);
   };
@@ -52,7 +51,7 @@ export const ServicePage = () => {
       return;
     }
     try {
-      const payload = { ...data, companyId, products: data.products || [] };
+      const payload = { ...data, companyId };
       if (editingId) {
         await updateService(editingId, payload);
         showAlert({ title: "Sucesso", message: "Serviço atualizado", type: "success" });

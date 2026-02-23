@@ -1,21 +1,34 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
+import { startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, isSameDay, subMonths, addMonths, format, parseISO } from "date-fns";
+
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+
 import { AppointmentRequestService } from "../services/appointment-request-service";
 import { PublicAvailabilityService, type PublicCompanyInfo, type PublicCompanyItem } from "../services/public-availability-service";
+
 import CardService from "./components/public/card-service";
-import CardProfissionals from "./components/public/card-profissionals";
+import SuccessModal from "./components/public/card-success-modal-page";
+import AppointmentStepper from "./components/public/card-appointment-stepper";
+import CompanySelector from "./components/public/card-company-selector-page";
+import TimeSlotsSection from "./components/public/card-timeslots-section-page";
+import SummaryCard from "./components/public/card-summary-page";
 
 export const PublicAppointmentRequestPage = () => {
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
+  const [successOpen, setSuccessOpen] = useState(false);
+
   const [companyInfo, setCompanyInfo] = useState<PublicCompanyInfo | null>(null);
   const [companies, setCompanies] = useState<PublicCompanyItem[]>([]);
+
   const [availableSlots, setAvailableSlots] = useState<string[]>([]);
-  const [availableSlotsByProfessional, setAvailableSlotsByProfessional] = useState<Record<string, string[]>>({});
+  const [availabilityCache, setAvailabilityCache] = useState<Record<string, string[]>>({});
+  const inflightDates = useRef<Set<string>>(new Set());
   const [slotsLoading, setSlotsLoading] = useState(false);
+
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
   const [form, setForm] = useState({
     companyId: "",
     serviceId: "",
@@ -35,32 +48,9 @@ export const PublicAppointmentRequestPage = () => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
-  const loadCompany = async (id: number) => {
-    try {
-      const info = await PublicAvailabilityService.getCompanyInfo(id);
-      setCompanyInfo(info);
-    } catch {
-      setCompanyInfo(null);
-    }
-  };
-
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const cid = params.get("company");
-    const sid = params.get("service");
-    const pid = params.get("professional");
-    if (cid) {
-      onChange("companyId", cid);
-      const id = Number(cid);
-      if (id) loadCompany(id);
-    }
-    if (sid) {
-      onChange("serviceId", sid);
-    }
-    if (pid) {
-      onChange("professionalId", pid);
-    }
-  }, []);
+  const selectedService = companyInfo?.services?.find(
+    (s) => String(s.id) === String(form.serviceId)
+  );
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -74,299 +64,231 @@ export const PublicAppointmentRequestPage = () => {
     fetchCompanies();
   }, []);
 
-  const loadSlots = async (id: number, date: string) => {
-    setSlotsLoading(true);
+  const loadCompany = async (id: number) => {
     try {
-      // If a professional is already selected, fetch only for that professional
-      if (form.professionalId) {
-        const pid = Number(form.professionalId);
-        const slots = await PublicAvailabilityService.getAvailableSlots(id, date, pid);
-        setAvailableSlots(slots);
-        setAvailableSlotsByProfessional({});
+      const info = await PublicAvailabilityService.getCompanyInfo(id);
+      setCompanyInfo(info);
+    } catch {
+      setCompanyInfo(null);
+    }
+  };
+
+  const loadSlots = async (companyId: number, date: string) => {
+    setSlotsLoading(true);
+
+    try {
+      if (availabilityCache[date]) {
+        setAvailableSlots(availabilityCache[date]);
         return;
       }
 
-      // If company has professionals, fetch per professional
-      if (companyInfo?.professionals && companyInfo.professionals.length > 0) {
-        const map: Record<string, string[]> = {};
-        for (const p of companyInfo.professionals) {
-          try {
-            const slots = await PublicAvailabilityService.getAvailableSlots(id, date, p.id);
-            map[String(p.id)] = slots;
-          } catch {
-            map[String(p.id)] = [];
-          }
-        }
-        setAvailableSlotsByProfessional(map);
-        const union = Array.from(new Set(Object.values(map).flat()));
-        setAvailableSlots(union);
-        return;
-      }
+      if (inflightDates.current.has(date)) return;
+      inflightDates.current.add(date);
 
-      // Fallback: fetch company-level slots
-      const slots = await PublicAvailabilityService.getAvailableSlots(id, date);
+      const slots = await PublicAvailabilityService.getAvailableSlots(
+        companyId,
+        date
+      );
+
       setAvailableSlots(slots);
-      setAvailableSlotsByProfessional({});
+      setAvailabilityCache((prev) => ({ ...prev, [date]: slots }));
     } catch {
       setAvailableSlots([]);
-      setAvailableSlotsByProfessional({});
     } finally {
+      inflightDates.current.delete(date);
       setSlotsLoading(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSelectDay = async (day: Date) => {
+    const iso = format(day, "yyyy-MM-dd");
+    onChange("preferredDate", iso);
+
+    const cid = Number(form.companyId);
+    if (cid) await loadSlots(cid, iso);
+  };
+
+  const renderCalendar = () => {
+    const start = startOfWeek(startOfMonth(calendarMonth));
+    const end = addDays(endOfMonth(calendarMonth), 6);
+    const days: Date[] = [];
+
+    for (let d = start; d <= end; d = addDays(d, 1)) {
+      days.push(d);
+    }
+
+    return (
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}>
+            {"<"}
+          </button>
+          <div className="font-semibold">
+            {format(calendarMonth, "MMMM yyyy")}
+          </div>
+          <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
+            {">"}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 gap-2 text-sm">
+          {days.map((day) => {
+            const iso = format(day, "yyyy-MM-dd");
+            const disabled = !isSameMonth(day, calendarMonth);
+            const selected =
+              form.preferredDate &&
+              isSameDay(parseISO(form.preferredDate), day);
+
+            return (
+              <button
+                key={iso}
+                disabled={disabled}
+                onClick={() => handleSelectDay(day)}
+                className={`h-12 rounded-xl transition
+                  ${
+                    selected
+                      ? "bg-teal-600 text-white shadow-md"
+                      : "hover:bg-teal-50"
+                  }
+                  ${disabled && "opacity-40 cursor-not-allowed"}
+                `}
+              >
+                {format(day, "d")}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
+  const handleSubmit = async () => {
     setLoading(true);
-    setMessage(null);
+
     try {
       await AppointmentRequestService.createPublic({
         companyId: Number(form.companyId),
+        serviceId: Number(form.serviceId),
+        professionalId: form.professionalId
+          ? Number(form.professionalId)
+          : undefined,
         clientName: form.clientName,
         clientEmail: form.clientEmail || undefined,
-        clientPhone: form.clientPhone || undefined,
-        serviceId: form.serviceId ? Number(form.serviceId) : undefined,
-        professionalId: form.professionalId ? Number(form.professionalId) : undefined,
+        clientPhone: form.clientPhone,
         preferredDate: form.preferredDate,
         preferredTime: form.preferredTime,
         notes: form.notes || undefined,
       });
-      setMessage("Solicitação enviada com sucesso.");
-     
-      setAvailableSlots([]);
-      setCompanyInfo(null);
+
+      setSuccessOpen(true);
     } catch {
-      setMessage("Não foi possível enviar sua solicitação.");
+      alert("Erro ao enviar solicitação.");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-start justify-center px-4 py-10">
-      <div className="w-full max-w-5xl grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <CardTitle>Solicitar agendamento</CardTitle>
-              <CardDescription>Preencha os dados e escolha um horário disponível</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form className="space-y-4" onSubmit={handleSubmit}>
-                {!form.companyId ? (
-                  <div className="space-y-2">
-                    <Label>Empresa</Label>
-                    <select
-                      className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-                      value={form.companyId}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        onChange("companyId", value);
-                        const id = Number(value);
-                        if (id) {
-                          loadCompany(id);
-                          if (form.preferredDate) {
-                            loadSlots(id, form.preferredDate);
-                          }
-                        } else {
-                          setCompanyInfo(null);
-                          setAvailableSlots([]);
-                        }
-                      }}
-                    >
-                      <option value="">Selecione uma empresa</option>
-                      {companies.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    <Label>Empresa selecionada</Label>
-                    <div className="p-2 rounded border bg-white">{companyInfo?.name ?? companies.find((c) => String(c.id) === form.companyId)?.name ?? form.companyId}</div>
-                  </div>
+    <>
+      <SuccessModal
+        open={successOpen}
+        onClose={() => setSuccessOpen(false)}
+      />
+
+      <div className="min-h-screen from-slate-50 to-white px-4 py-12">
+        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
+          
+          <div className="lg:col-span-2 space-y-8">
+            <AppointmentStepper form={form} />
+
+            <Card className="rounded-2xl shadow-lg">
+              <CardHeader>
+                <CardTitle className="text-2xl font-bold">
+                  Agende seu horário
+                </CardTitle>
+                <CardDescription>
+                  Leva menos de 1 minuto
+                </CardDescription>
+              </CardHeader>
+
+              <CardContent className="space-y-8">
+
+                {!form.companyId && (
+                  <CompanySelector
+                    companies={companies}
+                    onSelect={(id) => {
+                      onChange("companyId", id);
+                      loadCompany(Number(id));
+                    }}
+                  />
                 )}
 
-                {companyInfo?.services && companyInfo.services.length > 0 ? (
-                  <div className="space-y-2">
-                    <Label>Serviço</Label>
-                    <CardService
-                      services={companyInfo.services}
-                      selectedId={form.serviceId}
-                      onSelect={(id) => onChange("serviceId", id)}
-                    />
-                  </div>
-                ) : null}
+                {companyInfo && (
+                  <CardService
+                    services={companyInfo.services ?? []}
+                    selectedId={form.serviceId}
+                    onSelect={(id) => onChange("serviceId", id)}
+                  />
+                )}
 
-                {companyInfo?.professionals && companyInfo.professionals.length > 0 ? (
-                  <div className="space-y-2">
-                    <Label>Profissional (opcional)</Label>
-                    <CardProfissionals
-                      professionals={companyInfo.professionals}
-                      selectedId={form.professionalId}
-                      onSelect={(id) => {
-                        onChange("professionalId", id);
-                        const cid = Number(form.companyId);
-                        if (cid && form.preferredDate) loadSlots(cid, form.preferredDate);
-                      }}
-                    />
-                  </div>
-                ) : null}
+                {form.serviceId && renderCalendar()}
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Nome</Label>
-                    <Input value={form.clientName} onChange={(e) => onChange("clientName", e.target.value)} placeholder="Seu nome" />
-                  </div>
+                {form.preferredDate && (
+                  <TimeSlotsSection
+                    slots={availableSlots}
+                    selected={form.preferredTime}
+                    loading={slotsLoading}
+                    onSelect={(time) => onChange("preferredTime", time)}
+                  />
+                )}
 
-                  <div className="space-y-2">
-                    <Label>Telefone</Label>
-                    <Input required value={form.clientPhone} onChange={(e) => onChange("clientPhone", e.target.value)} placeholder="(11) 99999-9999" />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Data</Label>
+                {form.preferredTime && (
+                  <div className="space-y-4">
                     <Input
-                      type="date"
-                      value={form.preferredDate}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        onChange("preferredDate", value);
-                        const id = Number(form.companyId);
-                        if (id && value) {
-                          loadSlots(id, value);
-                        } else {
-                          setAvailableSlots([]);
-                        }
-                      }}
+                      placeholder="Seu nome"
+                      value={form.clientName}
+                      onChange={(e) =>
+                        onChange("clientName", e.target.value)
+                      }
                     />
+                    <Input
+                      placeholder="Telefone"
+                      value={form.clientPhone}
+                      onChange={(e) =>
+                        onChange("clientPhone", e.target.value)
+                      }
+                    />
+                    <Input
+                      placeholder="Email (opcional)"
+                      value={form.clientEmail}
+                      onChange={(e) =>
+                        onChange("clientEmail", e.target.value)
+                      }
+                    />
+
+                    <Button
+                      size="lg"
+                      className="w-full h-12 text-base font-semibold shadow-lg"
+                      disabled={!isValid || loading}
+                      onClick={handleSubmit}
+                    >
+                      {loading ? "Enviando..." : "Confirmar agendamento"}
+                    </Button>
                   </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
 
-                  <div className="space-y-2">
-                    <Label>Hora</Label>
-                    <div>
-                      {slotsLoading ? (
-                        <div className="text-sm">Carregando horários...</div>
-                      ) : (
-                        <div>
-                          {(!form.professionalId && Object.keys(availableSlotsByProfessional).length > 0) ? (
-                            <div className="space-y-3">
-                              {companyInfo?.professionals?.map((p) => {
-                                const slots = availableSlotsByProfessional[String(p.id)] || [];
-                                return (
-                                  <div key={p.id} className="pb-2">
-                                    <div className="text-sm font-medium mb-2">{p.name}</div>
-                                    {slots.length === 0 ? (
-                                      <div className="text-sm text-muted-foreground">Sem horários disponíveis</div>
-                                    ) : (
-                                      <div className="flex flex-wrap gap-2">
-                                        {slots.map((slot) => {
-                                          const selected = slot === form.preferredTime && String(p.id) === form.professionalId;
-                                          return (
-                                            <button
-                                              key={slot}
-                                              type="button"
-                                              onClick={() => {
-                                                onChange("professionalId", String(p.id));
-                                                onChange("preferredTime", slot);
-                                              }}
-                                              className={`px-3 py-1.5 rounded-md text-sm border ${selected ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-700 border-slate-200"}`}>
-                                              {slot}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          ) : (
-                            (availableSlots.length === 0) ? (
-                              <div className="text-sm text-muted-foreground">Sem horários disponíveis para esta data.</div>
-                            ) : (
-                              <div className="flex flex-wrap gap-2">
-                                {availableSlots.map((slot) => {
-                                  const selected = slot === form.preferredTime;
-                                  return (
-                                    <button
-                                      key={slot}
-                                      type="button"
-                                      onClick={() => onChange("preferredTime", slot)}
-                                      className={`px-3 py-1.5 rounded-md text-sm border ${selected ? "bg-teal-600 text-white border-teal-600" : "bg-white text-slate-700 border-slate-200"}`}>
-                                      {slot}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Observações</Label>
-                  <Input value={form.notes} onChange={(e) => onChange("notes", e.target.value)} placeholder="Opcional" />
-                </div>
-
-                {message ? <div className="text-sm text-muted-foreground">{message}</div> : null}
-
-                <div className="flex items-center gap-3">
-                  <Button type="submit" disabled={loading || !isValid} className="flex-1">
-                    {loading ? "Enviando..." : "Enviar solicitação"}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="lg:col-span-1">
-          <Card>
-            <CardHeader>
-              <CardTitle>Resumo</CardTitle>
-              <CardDescription>Verifique os dados antes de enviar</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <div className="text-xs text-muted-foreground">Empresa</div>
-                  <div className="font-medium">{companyInfo ? companyInfo.name : "—"}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground">Data</div>
-                  <div className="font-medium">{form.preferredDate || "—"}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground">Horário</div>
-                  <div className="font-medium">{form.preferredTime || "—"}</div>
-                </div>
-
-                <div>
-                  <div className="text-xs text-muted-foreground">Cliente</div>
-                  <div className="font-medium">{form.clientName || "—"}</div>
-                </div>
-
-                <div className="pt-3 border-t">
-                  <div className="flex justify-between items-center">
-                    <div className="text-sm text-muted-foreground">Total:</div>
-                    <div className="text-lg font-semibold">R$ 0,00</div>
-                  </div>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          <SummaryCard
+            company={companyInfo?.name}
+            service={selectedService?.service_name}
+            date={form.preferredDate}
+            time={form.preferredTime}
+            price={selectedService?.price ?? undefined}
+          />
         </div>
       </div>
-    </div>
+    </>
   );
 };

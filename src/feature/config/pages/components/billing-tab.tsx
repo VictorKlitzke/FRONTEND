@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { BillingService } from "@/feature/billing/services/billing-service";
 import { format, addMonths } from "date-fns";
 
@@ -15,6 +16,7 @@ type InvoiceDTO = {
 };
 
 export const BillingTab = () => {
+  const navigate = useNavigate();
   const [invoices, setInvoices] = useState<InvoiceDTO[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -43,12 +45,12 @@ export const BillingTab = () => {
         <CardDescription>Plano atual, upgrade e histórico</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="rounded-lg border p-4 flex items-center justify-between">
+          <div className="rounded-lg border p-4 flex items-center justify-between">
           <div>
             <p className="text-sm text-muted-foreground">Plano atual</p>
             <p className="text-lg font-semibold">Pro Mensal</p>
           </div>
-          <Button>Fazer upgrade</Button>
+          <Button onClick={() => navigate('/planos')}>Fazer upgrade</Button>
         </div>
 
         <div className="space-y-3">
