@@ -21,16 +21,17 @@ export const useRegisterStore = create<RegisterState>()(
 
             onRegister: async (payload) => {
                 set({ loading: true, error: null });
-                console.log(payload)
 
                 try {
                     await AuthService.register(payload);
                     set({ loading: false });
                 } catch (err) {
+                    const message = err instanceof Error ? err.message : "Registration failed";
                     set({
                         loading: false,
-                        error: err instanceof Error ? err.message : "Registration failed",
+                        error: message,
                     });
+                    throw err;
                 }
             },
         }),

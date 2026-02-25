@@ -9,6 +9,11 @@ export type RegisterPayload = {
   phone: string;
 };
 
+export type VerifyEmailPayload = {
+  email: string;
+  verification_code: string;
+};
+
 export class AuthService {
   static async login(payload: { email: string; password: string }) {
     const { data } = await api.post("auth/login", payload)
@@ -27,6 +32,11 @@ export class AuthService {
 
   static async register(payload: RegisterPayload) {
     const { data } = await api.post("auth/register", payload)
+    return data
+  }
+
+  static async verifyEmail(payload: VerifyEmailPayload) {
+    const { data } = await api.post("auth/verify-email", payload)
     return data
   }
 }

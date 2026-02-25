@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import type { SettingsDTO } from "@/feature/config/services/settings-service";
 import type { EmpresaDTO } from "@/feature/empresa/services/empresa-service";
 import PublicLinkGenerator from "./public-link-generator";
+import { WhatsappConnectionCard } from "./whatsapp-connection-card";
 
 interface CompanyTabProps {
   settings: SettingsDTO;
@@ -67,6 +68,8 @@ export const CompanyTab = ({ settings, onChange, company }: CompanyTabProps) => 
           <Input placeholder="America/Sao_Paulo" disabled />
         </div>
       </div>
+      <Separator />
+      <WhatsappConnectionCard companyId={company?.id} />
       <Separator />
       <PublicLinkGenerator settings={settings} />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
