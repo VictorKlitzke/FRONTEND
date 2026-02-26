@@ -93,7 +93,7 @@ export const RegisterPage = () => {
 
     return (
         <>
-            <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
+            <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2 bg-linear-to-br from-slate-100 via-slate-100 to-slate-200/80 brand-register-page">
                 <div className="flex items-center justify-center px-6">
                     <RegisterFormCard
                         isLoading={isLoading}

@@ -1,9 +1,7 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, isSameDay, subMonths, addMonths, format, parseISO } from "date-fns";
 
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAlert } from "@/hooks/use-alert";
 
@@ -16,6 +14,7 @@ import AppointmentStepper from "./components/public/card-appointment-stepper";
 import CompanySelector from "./components/public/card-company-selector-page";
 import TimeSlotsSection from "./components/public/card-timeslots-section-page";
 import SummaryCard from "./components/public/card-summary-page";
+import { Calendar, ChevronLeft, ChevronRight, ArrowRight, Loader2 } from "lucide-react";
 
 export const PublicAppointmentRequestPage = () => {
   const [searchParams] = useSearchParams();
@@ -56,6 +55,43 @@ export const PublicAppointmentRequestPage = () => {
   const selectedService = companyInfo?.services?.find(
     (s) => String(s.id) === String(form.serviceId)
   );
+
+  const publicThemeVars = useMemo(() => {
+    const normalizeHexColor = (value?: string | null) => {
+      if (!value) return null;
+      const hex = value.trim().replace("#", "");
+      if (hex.length === 3) {
+        return `#${hex
+          .split("")
+          .map((c) => `${c}${c}`)
+          .join("")}`;
+      }
+      if (hex.length === 6) return `#${hex}`;
+      return null;
+    };
+
+    const hexToRgb = (hexColor: string) => {
+      const hex = hexColor.replace("#", "");
+      return {
+        r: parseInt(hex.slice(0, 2), 16),
+        g: parseInt(hex.slice(2, 4), 16),
+        b: parseInt(hex.slice(4, 6), 16),
+      };
+    };
+
+    const primary = normalizeHexColor(companyInfo?.settings?.primary_color) ?? "#059669";
+    const secondary = normalizeHexColor(companyInfo?.settings?.secondary_color) ?? "#0d9488";
+    const primaryRgb = hexToRgb(primary);
+    const secondaryRgb = hexToRgb(secondary);
+
+    return {
+      "--brand-primary-rgb": `${primaryRgb.r}, ${primaryRgb.g}, ${primaryRgb.b}`,
+      "--brand-secondary-rgb": `${secondaryRgb.r}, ${secondaryRgb.g}, ${secondaryRgb.b}`,
+      "--brand-gradient-main": "linear-gradient(135deg, var(--primary), var(--secondary))",
+      "--primary": primary,
+      "--secondary": secondary,
+    } as React.CSSProperties;
+  }, [companyInfo]);
 
   useEffect(() => {
     const fetchCompanies = async () => {
@@ -163,20 +199,37 @@ export const PublicAppointmentRequestPage = () => {
     }
 
     return (
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <button onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}>
-            {"<"}
+      <div className="public-card rounded-2xl backdrop-blur-sm p-5">
+        <h3 className="text-base font-bold text-slate-800 mb-4">Escolha uma data</h3>
+        {/* Month navigation */}
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => setCalendarMonth(subMonths(calendarMonth, 1))}
+            className="public-hover-brand h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center transition-all"
+          >
+            <ChevronLeft size={16} className="text-slate-600" />
           </button>
-          <div className="font-semibold">
+          <div className="text-sm font-bold text-slate-800 capitalize">
             {format(calendarMonth, "MMMM yyyy")}
           </div>
-          <button onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}>
-            {">"}
+          <button
+            onClick={() => setCalendarMonth(addMonths(calendarMonth, 1))}
+            className="public-hover-brand h-8 w-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center transition-all"
+          >
+            <ChevronRight size={16} className="text-slate-600" />
           </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-2 text-sm">
+        {/* Day labels */}
+        <div className="grid grid-cols-7 gap-1 mb-2">
+          {["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"].map((d) => (
+            <div key={d} className="h-8 flex items-center justify-center text-[11px] font-semibold text-slate-400">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-1 text-sm">
           {days.map((day) => {
             const iso = format(day, "yyyy-MM-dd");
             const disabled = !isSameMonth(day, calendarMonth);
@@ -189,14 +242,16 @@ export const PublicAppointmentRequestPage = () => {
                 key={iso}
                 disabled={disabled}
                 onClick={() => handleSelectDay(day)}
-                className={`h-12 rounded-xl transition
-                  ${
-                    selected
-                      ? "bg-teal-600 text-white shadow-md"
-                      : "hover:bg-teal-50"
-                  }
-                  ${disabled && "opacity-40 cursor-not-allowed"}
-                `}
+                className={`h-9 rounded-xl text-sm font-medium transition-all duration-150
+                  ${selected
+                    ? "text-white public-selected-shadow"
+                    : disabled
+                      ? "text-slate-300 cursor-not-allowed"
+                      : "text-slate-700 public-hover-brand"
+                  }`}
+                style={selected ? {
+                  background: "var(--brand-gradient-main)",
+                } : undefined}
               >
                 {format(day, "d")}
               </button>
@@ -244,24 +299,41 @@ export const PublicAppointmentRequestPage = () => {
         onClose={() => setSuccessOpen(false)}
       />
 
-      <div className="min-h-screen from-slate-50 to-white px-4 py-12">
+      <div className="public-page-bg min-h-screen px-4 py-12" style={publicThemeVars}>
+        {/* Branded header */}
+        <div className="max-w-6xl mx-auto mb-8 flex items-center gap-3">
+          <div className="sidebar-brand-icon h-10 w-10 rounded-xl flex items-center justify-center text-white shadow-lg">
+            <Calendar size={18} />
+          </div>
+          <div>
+            <span className="text-xl font-bold gradient-text">AgendaPro</span>
+            <div className="public-brand-subtle text-xs mt-0.5">Agendamento Online</div>
+          </div>
+        </div>
+
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-10">
-          
-          <div className="lg:col-span-2 space-y-8">
+
+          <div className="lg:col-span-2 space-y-6">
             <AppointmentStepper form={form} />
 
-            <Card className="rounded-2xl shadow-lg">
-              <CardHeader>
-                <CardTitle className="text-2xl font-bold">
-                  Agende seu horário
-                </CardTitle>
-                <CardDescription>
-                  Leva menos de 1 minuto
-                </CardDescription>
-              </CardHeader>
+            <div className="public-card rounded-2xl backdrop-blur-sm shadow-xl overflow-hidden">
+              {/* Card gradient header */}
+              <div className="public-header-soft px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <div
+                    className="h-10 w-10 rounded-xl flex items-center justify-center text-white shrink-0"
+                    style={{ background: "var(--brand-gradient-main)", boxShadow: "0 4px 12px rgba(var(--brand-primary-rgb, 5, 150, 105), 0.28)" }}
+                  >
+                    <Calendar size={18} />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-bold text-slate-900 leading-tight">Agende seu horário</h2>
+                    <p className="text-xs text-slate-500 mt-0.5">Leva menos de 1 minuto</p>
+                  </div>
+                </div>
+              </div>
 
-              <CardContent className="space-y-8">
-
+              <div className="p-6 space-y-8">
                 {!form.companyId && (
                   <CompanySelector
                     companies={companies}
@@ -273,7 +345,10 @@ export const PublicAppointmentRequestPage = () => {
                 )}
 
                 {companyLoading && (
-                  <div className="text-sm text-muted-foreground">Carregando dados da empresa...</div>
+                  <div className="flex items-center gap-2 text-sm text-slate-500">
+                    <Loader2 size={14} className="animate-spin public-brand-text" />
+                    Carregando dados da empresa...
+                  </div>
                 )}
 
                 {companyInfo && (
@@ -287,50 +362,60 @@ export const PublicAppointmentRequestPage = () => {
                 {form.serviceId && renderCalendar()}
 
                 {form.preferredDate && (
-                  <TimeSlotsSection
-                    slots={availableSlots}
-                    selected={form.preferredTime}
-                    loading={slotsLoading}
-                    onSelect={(time) => onChange("preferredTime", time)}
-                  />
+                  <div>
+                    <h3 className="text-base font-bold text-slate-800 mb-1">Escolha o horário</h3>
+                    <TimeSlotsSection
+                      slots={availableSlots}
+                      selected={form.preferredTime}
+                      loading={slotsLoading}
+                      onSelect={(time) => onChange("preferredTime", time)}
+                    />
+                  </div>
                 )}
 
                 {form.preferredTime && (
                   <div className="space-y-4">
+                    <h3 className="text-base font-bold text-slate-800">Seus dados</h3>
                     <Input
-                      placeholder="Seu nome"
+                      placeholder="Seu nome completo"
                       value={form.clientName}
-                      onChange={(e) =>
-                        onChange("clientName", e.target.value)
-                      }
+                      onChange={(e) => onChange("clientName", e.target.value)}
+                      className="brand-input-focus h-11 rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white transition-all"
                     />
                     <Input
-                      placeholder="Telefone"
+                      placeholder="Telefone / WhatsApp"
                       value={form.clientPhone}
-                      onChange={(e) =>
-                        onChange("clientPhone", e.target.value)
-                      }
+                      onChange={(e) => onChange("clientPhone", e.target.value)}
+                      className="brand-input-focus h-11 rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white transition-all"
                     />
                     <Input
                       placeholder="Email (opcional)"
                       value={form.clientEmail}
-                      onChange={(e) =>
-                        onChange("clientEmail", e.target.value)
-                      }
+                      onChange={(e) => onChange("clientEmail", e.target.value)}
+                      className="brand-input-focus h-11 rounded-xl border-slate-200 bg-slate-50/50 focus:bg-white transition-all"
                     />
 
-                    <Button
-                      size="lg"
-                      className="w-full h-12 text-base font-semibold shadow-lg"
+                    <button
                       disabled={!isValid || loading}
                       onClick={handleSubmit}
+                      className="btn-gradient w-full h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      {loading ? "Enviando..." : "Confirmar agendamento"}
-                    </Button>
+                      {loading ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Enviando...
+                        </>
+                      ) : (
+                        <>
+                          Confirmar agendamento
+                          <ArrowRight size={16} />
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           </div>
 
           <SummaryCard

@@ -11,7 +11,6 @@ import { ProfissionaisRoute } from "@/feature/profissional/route";
 import { AppointmentPublicRoute, AppointmentRoute } from "@/feature/appointment/route";
 import { PermissionsRoute } from "@/feature/permissions/route";
 import { ConfigRoute } from "@/feature/config/route";
-import { CaseRoute } from "@/feature/case/route";
 import { BillingRoutes } from "@/feature/billing/route";
 
 export const router = createBrowserRouter([
@@ -32,7 +31,6 @@ export const router = createBrowserRouter([
       ...ClientRoutes,
       ...StockMovementRoute,
       ...AppointmentRoute,
-      ...CaseRoute,
       ...PermissionsRoute,
       ...ConfigRoute,
     ],

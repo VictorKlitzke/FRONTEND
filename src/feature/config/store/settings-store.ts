@@ -19,6 +19,10 @@ const emptySettings: SettingsDTO = {
   segment: "",
   phone: "",
   email: "",
+  header_bg_color: "",
+  login_bg_color: "",
+  register_bg_color: "",
+  empresa_bg_color: "",
 };
 
 const normalizeSettings = (data?: SettingsDTO | null): SettingsDTO => ({
@@ -37,6 +41,10 @@ const normalizeSettings = (data?: SettingsDTO | null): SettingsDTO => ({
   segment: data?.segment ?? "",
   phone: data?.phone ?? "",
   email: data?.email ?? "",
+  header_bg_color: data?.header_bg_color ?? "",
+  login_bg_color: data?.login_bg_color ?? "",
+  register_bg_color: data?.register_bg_color ?? "",
+  empresa_bg_color: data?.empresa_bg_color ?? "",
 });
 
 const persistSettings = (data: SettingsDTO | null) => {
@@ -94,7 +102,7 @@ export const useSettingsStore = create<SettingsState>((set) => ({
       const data = await SettingsService.getByUserId(userId);
       const companyPayload = data ?? null;
       set(() => ({ company: companyPayload }));
-    } catch (err) {
+    } catch {
       set({ error: "Erro ao carregar informações da empresa" });
     } finally {
       set({ loading: false });

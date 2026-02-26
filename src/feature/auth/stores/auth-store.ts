@@ -1,5 +1,6 @@
 import { create } from "zustand"
 import { AuthService } from "../services/auth-services";
+import { clearBranding } from "@/feature/config/utils/apply-branding";
 
 export interface User {
   id: number;
@@ -68,10 +69,14 @@ export const AuthStore = create<AuthState>()(
       try {
         await AuthService.logout();
       } finally {
+        sessionStorage.removeItem("settings-storage");
+        clearBranding();
         set({ user: null, isAuthenticated: false, initialized: true, loading: false });
       }
     },
     resetAuth: () => {
+      sessionStorage.removeItem("settings-storage");
+      clearBranding();
       set({ user: null, isAuthenticated: false, initialized: true, loading: false });
     },
   })

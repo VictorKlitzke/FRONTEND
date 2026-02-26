@@ -3,15 +3,16 @@ import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, Building2 } from "lucide-react";
 import { useEmpresaStore } from "../stores/empresa-store";
 import { useAlert } from "@/hooks/use-alert";
 import { Input } from "@/components/ui/input";
 import { useNavigate } from "react-router-dom";
+import { PageHeader } from "@/components/page-header";
 
 const empresaSchema = z.object({
   name: z.string().min(3, "Nome inválido"),
@@ -66,17 +67,20 @@ export const EmpresaListPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Empresas</CardTitle>
-            <CardDescription>Gerencie as empresas</CardDescription>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={() => navigate('/empresa/cadastro')} className="w-full sm:w-auto"><Plus className="mr-2"/>Nova Empresa</Button>
-          </div>
-        </CardHeader>
+    <div className="container mx-auto px-4 py-6 sm:py-8 space-y-4">
+      <PageHeader
+        title="Empresas"
+        description="Gerencie as empresas cadastradas na plataforma"
+        icon={Building2}
+        iconColor="linear-gradient(135deg, #059669 0%, #0d9488 100%)"
+      >
+        <Button onClick={() => navigate('/empresa/cadastro')} className="w-full sm:w-auto btn-gradient rounded-xl gap-2">
+          <Plus size={16} />
+          Nova Empresa
+        </Button>
+      </PageHeader>
+
+      <Card className="card-refined border-0">
         <CardContent>
           {companies.length === 0 ? (
             <div className="text-center py-8">Nenhuma empresa cadastrada</div>

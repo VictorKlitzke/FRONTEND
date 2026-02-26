@@ -19,6 +19,11 @@ export type SettingsDTO = {
     segment?: string | null;
     phone?: string | null;
     email?: string | null;
+    /** Background color/gradient overrides for specific pages */
+    header_bg_color?: string | null;
+    login_bg_color?: string | null;
+    register_bg_color?: string | null;
+    empresa_bg_color?: string | null;
 };
 
 type ApiPayload<T> = {
@@ -45,8 +50,8 @@ export const SettingsService = {
 
     async getByUserId(userId: number): Promise<EmpresaDTO | null> {
         const { data } = await api.get(`/companies/user/${userId}`);
-        const resolved = data.data
-        if (Array.isArray(resolved))return resolved.length > 0 ? (resolved[0] as EmpresaDTO) : null;
+        const resolved = data.data;
+        if (Array.isArray(resolved)) return resolved.length > 0 ? (resolved[0] as EmpresaDTO) : null;
         return resolved as EmpresaDTO | null;
-    }
+    },
 };

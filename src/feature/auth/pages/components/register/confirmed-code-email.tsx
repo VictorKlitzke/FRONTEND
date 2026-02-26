@@ -68,7 +68,7 @@ export const ConfirmedCodeEmail = ({
 
                     <Button
                         type="button"
-                        className="w-full h-11 bg-emerald-500 hover:bg-emerald-600"
+                        className="w-full h-11 bg-slate-700 hover:bg-slate-800"
                         onClick={handleConfirm}
                         disabled={loading}
                     >

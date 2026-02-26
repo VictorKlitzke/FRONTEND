@@ -5,6 +5,9 @@ export interface PublicCompanyInfo {
   name: string;
   settings: {
     brand_name?: string | null;
+    primary_color?: string | null;
+    secondary_color?: string | null;
+    header_bg_color?: string | null;
     public_start_time?: string | null;
     public_end_time?: string | null;
     public_slot_minutes?: number | null;

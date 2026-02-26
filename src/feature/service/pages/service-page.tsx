@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, Scissors } from "lucide-react";
 import { useServiceStore } from "../stores/service-store";
 import { useAlert } from "@/hooks/use-alert";
 import { ServiceFormPage, type ServiceForm } from "./components/service-form-page";
@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/feature/config/store/settings-store";
 import { getSegmentLabels } from "@/shared/segments/segment-labels";
 import { AuthStore } from "@/feature/auth/stores/auth-store";
 import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store";
+import { PageHeader } from "@/components/page-header";
 
 export const ServicePage = () => {
   const { services, loading, fetchAll, createService, updateService, deleteService } = useServiceStore();
@@ -83,37 +84,41 @@ export const ServicePage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>{labels.services.plural}</CardTitle>
-            <CardDescription>Gerencie os {labels.services.plural.toLowerCase()}</CardDescription>
-          </div>
-          <Dialog open={isOpen} onOpenChange={(open) => {
-            setIsOpen(open);
-            if (!open) {
-              setEditingId(null);
-              setFormInitial(undefined);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNew} className="w-full sm:w-auto"><Plus className="mr-2" />Novo {labels.services.singular}</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingId ? `Editar ${labels.services.singular}` : `Novo ${labels.services.singular}`}</DialogTitle>
-                <DialogDescription>Preencha os dados</DialogDescription>
-              </DialogHeader>
-              <ServiceFormPage
-                initialValues={formInitial}
-                onSubmit={handleFormSubmit}
-                loading={loading}
-                onCancel={() => setIsOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
+    <div className="container mx-auto px-4 py-6 sm:py-8 space-y-4">
+      <PageHeader
+        title={labels.services.plural}
+        description={`Gerencie os ${labels.services.plural.toLowerCase()} da sua empresa`}
+        icon={Scissors}
+      >
+        <Dialog open={isOpen} onOpenChange={(open) => {
+          setIsOpen(open);
+          if (!open) {
+            setEditingId(null);
+            setFormInitial(undefined);
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew} className="w-full sm:w-auto btn-gradient rounded-xl gap-2">
+              <Plus size={16} />
+              Novo {labels.services.singular}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingId ? `Editar ${labels.services.singular}` : `Novo ${labels.services.singular}`}</DialogTitle>
+              <DialogDescription>Preencha os dados</DialogDescription>
+            </DialogHeader>
+            <ServiceFormPage
+              initialValues={formInitial}
+              onSubmit={handleFormSubmit}
+              loading={loading}
+              onCancel={() => setIsOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </PageHeader>
+
+      <Card className="card-refined border-0">
         <CardContent>
           <ServiceListPage
             services={Array.isArray(services)

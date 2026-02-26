@@ -1,14 +1,15 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
-import { Plus } from "lucide-react";
+import { Plus, ShoppingBag } from "lucide-react";
 import { useProductStore } from "../stores/product-store";
 import { useAlert } from "@/hooks/use-alert";
 import { ProductListPage, type ProductListItem } from "./components/product-list-page";
 import { ProductFormPage, type ProductForm } from "./components/product-form-page";
 import { AuthStore } from "@/feature/auth/stores/auth-store";
 import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store";
+import { PageHeader } from "@/components/page-header";
 
 export const ProductPage = () => {
   const { products, loading, fetchAll, createProduct, updateProduct, deleteProduct } = useProductStore();
@@ -72,40 +73,44 @@ export const ProductPage = () => {
     }));
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>Produtos</CardTitle>
-            <CardDescription>Gerencie os produtos</CardDescription>
-          </div>
-          <Dialog
-            open={isOpen}
-            onOpenChange={(open) => {
-              setIsOpen(open);
-              if (!open) {
-                setEditingId(null);
-                setFormInitial(undefined);
-              }
-            }}
-          >
-            <DialogTrigger asChild>
-              <Button className="w-full sm:w-auto"><Plus className="mr-2" />Novo Produto</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{editingId ? "Editar Produto" : "Novo Produto"}</DialogTitle>
-                <DialogDescription>Preencha os dados</DialogDescription>
-              </DialogHeader>
-              <ProductFormPage
-                initialValues={formInitial}
-                onSubmit={handleFormSubmit}
-                loading={loading}
-                onCancel={() => setIsOpen(false)}
-              />
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
+    <div className="container mx-auto px-4 py-6 sm:py-8 space-y-4">
+      <PageHeader
+        title="Produtos"
+        description="Gerencie os produtos da sua empresa"
+        icon={ShoppingBag}
+      >
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
+            setIsOpen(open);
+            if (!open) {
+              setEditingId(null);
+              setFormInitial(undefined);
+            }
+          }}
+        >
+          <DialogTrigger asChild>
+            <Button className="w-full sm:w-auto btn-gradient rounded-xl gap-2">
+              <Plus size={16} />
+              Novo Produto
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>{editingId ? "Editar Produto" : "Novo Produto"}</DialogTitle>
+              <DialogDescription>Preencha os dados</DialogDescription>
+            </DialogHeader>
+            <ProductFormPage
+              initialValues={formInitial}
+              onSubmit={handleFormSubmit}
+              loading={loading}
+              onCancel={() => setIsOpen(false)}
+            />
+          </DialogContent>
+        </Dialog>
+      </PageHeader>
+
+      <Card className="card-refined border-0">
         <CardContent>
           <ProductListPage
             products={listItems}

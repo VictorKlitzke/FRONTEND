@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, UserCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Dialog,
@@ -26,6 +23,7 @@ import { useSettingsStore } from "@/feature/config/store/settings-store";
 import { getSegmentLabels } from "@/shared/segments/segment-labels";
 import { AuthStore } from "@/feature/auth/stores/auth-store";
 import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store";
+import { PageHeader } from "@/components/page-header";
 
 export const ProfessionalPage = () => {
   const getApiMessage = (error: unknown): string | undefined => {
@@ -155,44 +153,45 @@ export const ProfessionalPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-6 sm:py-8">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>{labels.professionals.plural}</CardTitle>
-            <CardDescription>Gerencie os {labels.professionals.plural.toLowerCase()} da sua empresa</CardDescription>
-          </div>
-          <Dialog open={isDialogOpen} onOpenChange={(open) => {
-            setIsDialogOpen(open);
-            if (!open) {
-              setEditingId(null);
-              setFormInitial(undefined);
-            }
-          }}>
-            <DialogTrigger asChild>
-              <Button onClick={handleNew} className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Novo {labels.professionals.singular}
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  {editingId ? `Editar ${labels.professionals.singular}` : `Novo ${labels.professionals.singular}`}
-                </DialogTitle>
-                <DialogDescription>
-                  Preencha os dados do {labels.professionals.singular.toLowerCase()}
-                </DialogDescription>
-              </DialogHeader>
-              <ProfissionalFormPage
-                initialValues={formInitial}
-                onSubmit={onSubmit}
-                loading={loading}
-                onCancel={handleDialogClose}
-              />
-            </DialogContent>
-          </Dialog>
-        </CardHeader>
+    <div className="container mx-auto px-4 py-6 sm:py-8 space-y-4">
+      <PageHeader
+        title={labels.professionals.plural}
+        description={`Gerencie os ${labels.professionals.plural.toLowerCase()} da sua empresa`}
+        icon={UserCheck}
+      >
+        <Dialog open={isDialogOpen} onOpenChange={(open) => {
+          setIsDialogOpen(open);
+          if (!open) {
+            setEditingId(null);
+            setFormInitial(undefined);
+          }
+        }}>
+          <DialogTrigger asChild>
+            <Button onClick={handleNew} className="w-full sm:w-auto btn-gradient rounded-xl gap-2">
+              <Plus size={16} />
+              Novo {labels.professionals.singular}
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {editingId ? `Editar ${labels.professionals.singular}` : `Novo ${labels.professionals.singular}`}
+              </DialogTitle>
+              <DialogDescription>
+                Preencha os dados do {labels.professionals.singular.toLowerCase()}
+              </DialogDescription>
+            </DialogHeader>
+            <ProfissionalFormPage
+              initialValues={formInitial}
+              onSubmit={onSubmit}
+              loading={loading}
+              onCancel={handleDialogClose}
+            />
+          </DialogContent>
+        </Dialog>
+      </PageHeader>
+
+      <Card className="card-refined border-0">
         <CardContent>
           <ProfissionalListPage
             professionals={filteredProfessionals}
