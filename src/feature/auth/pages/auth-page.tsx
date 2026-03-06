@@ -103,7 +103,7 @@ export default function AuthPage() {
               <Calendar size={22} />
             </div>
             <div>
-              <span className="text-2xl font-bold tracking-tight gradient-text">AgendaPro</span>
+              <span className="text-2xl font-bold tracking-tight gradient-text">VK Labs Agenda</span>
               <div className="flex items-center gap-1 mt-0.5">
                 {[1,2,3,4,5].map(i => (
                   <Star key={i} size={10} className="fill-amber-400 text-amber-400" />
