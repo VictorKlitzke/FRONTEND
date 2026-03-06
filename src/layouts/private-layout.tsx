@@ -96,21 +96,12 @@ export const PrivateLayout = () => {
             navigate("/dashboard", { replace: true });
             return;
           }
-
-          const isBlocked =
-            planStatus === "canceled" ||
-            planStatus === "unpaid" ||
-            planStatus === "incomplete_expired";
-
-          if (isBlocked) {
-            navigate("/planos", { replace: true });
-            return;
-          }
         } catch {
           // ignore and retry
         }
 
         if (attempts >= maxAttempts) {
+          navigate("/planos", { replace: true });
           return;
         }
 
