@@ -70,19 +70,12 @@ export const PrivateLayout = () => {
     const successCheckout = searchParams.get("success") === "1";
 
     const checkPlan = async () => {
-      try {
         const status = await BillingService.getStatus();
         const planStatus = String(status?.plan?.status ?? "").toLowerCase();
         const planCode = String(status?.plan?.plan_code ?? "").toLowerCase();
         const isActive = planStatus === "active" || planStatus === "trialing";
         const hasPlan = planCode.length > 0;
-
-        if (!isActive && !hasPlan) {
-          navigate("/planos", { replace: true });
-        }
-      } catch {
-        navigate("/planos", { replace: true });
-      }
+        if (!isActive && !hasPlan) navigate("/planos", { replace: true });
     };
 
     if (successCheckout) {
