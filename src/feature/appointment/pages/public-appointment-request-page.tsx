@@ -4,6 +4,7 @@ import { startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, isSameDay,
 
 import { Input } from "@/components/ui/input";
 import { useAlert } from "@/hooks/use-alert";
+import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup";
 
 import { AppointmentRequestService } from "../services/appointment-request-service";
 import { PublicAvailabilityService, type PublicCompanyInfo, type PublicCompanyItem } from "../services/public-availability-service";
@@ -45,16 +46,18 @@ export const PublicAppointmentRequestPage = () => {
     notes: "",
   });
 
+  const selectedService = companyInfo?.services?.find(
+    (s) => String(s.id) === String(form.serviceId)
+  );
+
+  const publicScheduleConfigured = isPublicScheduleConfigured(companyInfo?.settings);
+
   const isValid =
-    Boolean(form.companyId && form.clientName && form.clientPhone && form.preferredDate && form.preferredTime);
+    Boolean(publicScheduleConfigured && form.companyId && form.clientName && form.clientPhone && form.preferredDate && form.preferredTime);
 
   const onChange = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
-
-  const selectedService = companyInfo?.services?.find(
-    (s) => String(s.id) === String(form.serviceId)
-  );
 
   const publicThemeVars = useMemo(() => {
     const normalizeHexColor = (value?: string | null) => {
@@ -102,6 +105,7 @@ export const PublicAppointmentRequestPage = () => {
         setCompanies([]);
       }
     };
+
     fetchCompanies();
   }, []);
 
@@ -351,7 +355,13 @@ export const PublicAppointmentRequestPage = () => {
                   </div>
                 )}
 
-                {companyInfo && (
+                {companyInfo && !publicScheduleConfigured && (
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                    Esta empresa ainda nao configurou os dias e horarios de atendimento. Tente novamente em alguns minutos.
+                  </div>
+                )}
+
+                {companyInfo && publicScheduleConfigured && (
                   <CardService
                     services={companyInfo.services ?? []}
                     selectedId={form.serviceId}

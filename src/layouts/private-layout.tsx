@@ -1,17 +1,25 @@
 import { Outlet, useLocation, useNavigate } from "react-router-dom"
-import { useEffect } from "react"
+import { useEffect, useRef, useState } from "react"
 import { SideBarComponents } from "../components/sidebar"
 import { HeaderComponents } from "../components/header"
 import { SidebarProvider } from "../components/ui/sidebar"
 import { AuthStore } from "@/feature/auth/stores/auth-store"
 import { BillingService } from "@/feature/billing/services/billing-service"
 import { useSettingsStore } from "@/feature/config/store/settings-store"
+import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup"
+import { useAlert } from "@/hooks/use-alert"
 
 export const PrivateLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, initialized, bootstrap, logout, user } = AuthStore();
-  const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+  const { fetchSettings, settings } = useSettingsStore((state) => ({
+    fetchSettings: state.fetchSettings,
+    settings: state.settings,
+  }));
+  const { showAlert } = useAlert();
+  const [settingsReady, setSettingsReady] = useState(false);
+  const setupReminderShownRef = useRef(false);
 
   useEffect(() => {
     if (!initialized) {
@@ -28,8 +36,31 @@ export const PrivateLayout = () => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
-    void fetchSettings();
+    setSettingsReady(false);
+    void fetchSettings().finally(() => {
+      setSettingsReady(true);
+    });
   }, [isAuthenticated, fetchSettings]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !settingsReady) return;
+    if (location.pathname.startsWith("/config")) return;
+    if (location.pathname === "/inactive") return;
+
+    const hasPublicSchedule = isPublicScheduleConfigured(settings);
+    if (hasPublicSchedule) return;
+
+    if (!setupReminderShownRef.current) {
+      showAlert({
+        title: "Finalize sua agenda pública",
+        message: "Configure dias e horários de atendimento para liberar o agendamento online.",
+        type: "warning",
+      });
+      setupReminderShownRef.current = true;
+    }
+
+    navigate("/config?tab=agenda&firstSetup=1", { replace: true });
+  }, [isAuthenticated, location.pathname, navigate, settings, settingsReady, showAlert]);
 
   useEffect(() => {
     if (!isAuthenticated) return;

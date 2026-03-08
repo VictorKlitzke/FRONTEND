@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useAlert } from "@/hooks/use-alert";
 import type { SettingsDTO } from "@/feature/config/services/settings-service";
 import { useSettingsStore } from "@/feature/config/store/settings-store";
@@ -17,9 +18,20 @@ const TABS = [
 ] as const;
 
 export const ConfigPage = () => {
+  const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<(typeof TABS)[number]["id"]>("company");
   const { showAlert } = useAlert();
   const { settings, loading, setSettings, fetchSettings, updateSettings, fetchCompanyInfo, company } = useSettingsStore();
+
+  const firstSetup = searchParams.get("firstSetup") === "1";
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (!tab) return;
+    if (TABS.some((item) => item.id === tab)) {
+      setActiveTab(tab as (typeof TABS)[number]["id"]);
+    }
+  }, [searchParams]);
 
   const tabContent = useMemo(() => ({
     company: <CompanyTab settings={settings} onChange={(patch) => setSettings(patch)} company={company} />,
@@ -125,6 +137,12 @@ export const ConfigPage = () => {
           );
         })}
       </div>
+
+      {firstSetup && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          Para liberar o agendamento online, preencha os dias e horarios na aba <strong>Agenda</strong> e clique em <strong>Salvar alteracoes</strong>.
+        </div>
+      )}
 
       {/* Tab Content */}
       {tabContent[activeTab]}
