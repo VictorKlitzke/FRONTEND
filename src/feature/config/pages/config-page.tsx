@@ -52,7 +52,7 @@ export const ConfigPage = () => {
       }
     };
     loadSettings();
-  }, [fetchSettings, fetchCompanyInfo, settings.company_id, showAlert]);
+  }, [fetchSettings, fetchCompanyInfo, showAlert]);
 
   const handleSave = async () => {
     try {

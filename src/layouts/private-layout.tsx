@@ -9,8 +9,6 @@ import { useSettingsStore } from "@/feature/config/store/settings-store"
 import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup"
 import { useAlert } from "@/hooks/use-alert"
 
-const FIRST_ACCESS_INTRO_SEEN_KEY = "first-access-intro-seen:";
-
 export const PrivateLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -22,27 +20,7 @@ export const PrivateLayout = () => {
   const { showAlert } = useAlert();
   const [settingsReady, setSettingsReady] = useState(false);
   const setupReminderShownRef = useRef(false);
-  const introRedirectDoneRef = useRef(false);
   const setupRedirectDoneRef = useRef(false);
-
-  useEffect(() => {
-    if (!isAuthenticated || !initialized) return;
-    if (!user?.id) return;
-
-    const key = `${FIRST_ACCESS_INTRO_SEEN_KEY}${user.id}`;
-    const introSeen = sessionStorage.getItem(key) === "1";
-    if (introSeen) return;
-
-    if (location.pathname.startsWith("/primeiro-acesso")) {
-      introRedirectDoneRef.current = true;
-      return;
-    }
-
-    if (!introRedirectDoneRef.current) {
-      introRedirectDoneRef.current = true;
-      navigate("/primeiro-acesso", { replace: true });
-    }
-  }, [initialized, isAuthenticated, location.pathname, navigate, user?.id]);
 
   useEffect(() => {
     if (!initialized) {
@@ -67,10 +45,6 @@ export const PrivateLayout = () => {
 
   useEffect(() => {
     if (!isAuthenticated || !settingsReady) return;
-    if (!user?.id) return;
-    const introKey = `${FIRST_ACCESS_INTRO_SEEN_KEY}${user.id}`;
-    const introSeen = sessionStorage.getItem(introKey) === "1";
-    if (!introSeen) return;
 
     if (location.pathname.startsWith("/config")) return;
     if (location.pathname.startsWith("/primeiro-acesso")) return;
@@ -92,7 +66,7 @@ export const PrivateLayout = () => {
       setupRedirectDoneRef.current = true;
       navigate("/config?tab=agenda&firstSetup=1", { replace: true });
     }
-  }, [isAuthenticated, location.pathname, navigate, settings, settingsReady, showAlert, user?.id]);
+  }, [isAuthenticated, location.pathname, navigate, settings, settingsReady, showAlert]);
 
   useEffect(() => {
     if (!isAuthenticated) return;
