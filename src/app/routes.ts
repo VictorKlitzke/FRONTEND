@@ -12,6 +12,7 @@ import { AppointmentPublicRoute, AppointmentRoute } from "@/feature/appointment/
 import { PermissionsRoute } from "@/feature/permissions/route";
 import { ConfigRoute } from "@/feature/config/route";
 import { BillingRoutes } from "@/feature/billing/route";
+import { OnboardingRoute } from "@/feature/onboarding/route";
 
 export const router = createBrowserRouter([
 
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       ...AppointmentRoute,
       ...PermissionsRoute,
       ...ConfigRoute,
+      ...OnboardingRoute,
     ],
   },
 ]);

@@ -9,6 +9,7 @@ export type MenuItem = {
 };
 
 export const menuItens: MenuItem[] = [
+  { label: "Introdução", icon: BarChart3, path: "/primeiro-acesso" },
   { label: "Relatórios", icon: BarChart3, path: "/dashboard" },
   { label: "Agenda", icon: Calendar, path: "/appointments", quick: true },
   { label: "Clientes", icon: User, path: "/clientes", quick: true },

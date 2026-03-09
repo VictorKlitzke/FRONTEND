@@ -11,7 +11,7 @@ const NAV_SECTIONS: { label: string; paths: string[] }[] = [
   { label: "Principal", paths: ["/dashboard", "/appointments"] },
   { label: "Gestão", paths: ["/clientes", "/casos", "/profissionais", "/servicos"] },
   { label: "Estoque", paths: ["/produtos", "/estoque/movimentacoes"] },
-  { label: "Sistema", paths: ["/permissoes", "/config"] },
+  { label: "Sistema", paths: ["/primeiro-acesso", "/permissoes", "/config"] },
 ];
 
 export const SideBarComponents = () => {
