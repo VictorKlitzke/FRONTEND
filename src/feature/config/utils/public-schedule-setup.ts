@@ -7,7 +7,7 @@ type PublicScheduleSettings = {
 
 const isValidTime = (value?: string | null): boolean => {
   if (!value) return false;
-  return /^([01]\d|2[0-3]):[0-5]\d$/.test(value.trim());
+  return /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value.trim());
 };
 
 const toMinutes = (value: string): number => {
