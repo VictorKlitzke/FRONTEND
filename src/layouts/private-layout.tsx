@@ -13,10 +13,8 @@ export const PrivateLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, initialized, bootstrap, logout, user } = AuthStore();
-  const { fetchSettings, settings } = useSettingsStore((state) => ({
-    fetchSettings: state.fetchSettings,
-    settings: state.settings,
-  }));
+  const fetchSettings = useSettingsStore((state) => state.fetchSettings);
+  const settings = useSettingsStore((state) => state.settings);
   const { showAlert } = useAlert();
   const [settingsReady, setSettingsReady] = useState(false);
   const setupReminderShownRef = useRef(false);
