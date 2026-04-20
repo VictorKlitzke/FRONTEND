@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { BillingService } from "@/feature/billing/services/billing-service";
 import { AcoesRapidas } from "../components/acoes-rapida";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DashboardService, type DashboardMetrics } from "../services/dashboard-service";
@@ -44,10 +46,40 @@ const METRIC_CONFIGS = [
   },
 ]
 
-export const DashboardPage = () => {
+export default function DashboardPage() {
   const { showAlert } = useAlert();
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [visible, setVisible] = useState(false);
+  const navigate = useNavigate();
+
+  // Protege o dashboard: se trial expirou ou plano inativo, redireciona para planos
+  useEffect(() => {
+    const checkPlan = async () => {
+      try {
+        const status = await BillingService.getStatus();
+        const plan = status?.plan;
+        const planCode = plan?.plan_code;
+        const planStatus = plan?.status;
+        const periodEnd = plan?.current_period_end;
+        if (planCode === "trial" && planStatus === "trialing" && periodEnd) {
+          const now = new Date();
+          const end = new Date(periodEnd);
+          if (now > end) {
+            navigate("/planos", { replace: true });
+            return;
+          }
+        }
+        if (!planCode || (planStatus !== "active" && planStatus !== "trialing")) {
+          navigate("/planos", { replace: true });
+          return;
+        }
+      } catch {
+        // Se der erro, força escolher plano
+        navigate("/planos", { replace: true });
+      }
+    };
+    checkPlan();
+  }, [navigate]);
 
   useEffect(() => {
     const load = async () => {
@@ -236,4 +268,4 @@ export const DashboardPage = () => {
       </div>
     </div>
   );
-};
+}
