@@ -45,6 +45,7 @@ export function UsageDisplay() {
   if (!usage) return null;
 
   const planNames = {
+    trial: "Avaliação (Trial)",
     basic: "Básico",
     medium: "Médio",
     advanced: "Avançado",
@@ -63,6 +64,11 @@ export function UsageDisplay() {
         <CardDescription>
           Plano {planNames[usage.plan]} - {usage.used} de {usage.limit} usados
         </CardDescription>
+        {usage.plan === "trial" && (
+          <div className="mt-2 p-2 bg-yellow-100 text-yellow-800 rounded text-xs">
+            Você está no período de avaliação gratuito (7 dias). Aproveite para testar todos os recursos!
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

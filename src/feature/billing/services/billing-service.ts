@@ -1,6 +1,6 @@
 import { api } from "@/app/api";
 
-export type PlanCode = "basic" | "medium" | "advanced";
+export type PlanCode = "trial" | "basic" | "medium" | "advanced";
 
 export type CheckoutResponse = {
   url: string;
