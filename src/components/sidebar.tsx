@@ -8,7 +8,7 @@ import { Sidebar, SidebarContent } from "./ui/sidebar";
 import { getSegmentLabels, isCasesEnabled } from "@/shared/segments/segment-labels";
 
 const NAV_SECTIONS: { label: string; paths: string[] }[] = [
-  { label: "Principal", paths: ["/dashboard", "/appointments"] },
+  { label: "Principal", paths: ["/dashboard", "/appointments", "/service-packages"] },
   { label: "Gestão", paths: ["/clientes", "/casos", "/profissionais", "/servicos"] },
   { label: "Estoque", paths: ["/produtos", "/estoque/movimentacoes"] },
   { label: "Sistema", paths: ["/primeiro-acesso", "/permissoes", "/config"] },

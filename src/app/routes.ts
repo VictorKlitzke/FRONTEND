@@ -13,6 +13,7 @@ import { PermissionsRoute } from "@/feature/permissions/route";
 import { ConfigRoute } from "@/feature/config/route";
 import { BillingRoutes } from "@/feature/billing/route";
 import { OnboardingRoute } from "@/feature/onboarding/route";
+import { ServicePackageRoute } from '@/feature/service-package/route';
 
 export const router = createBrowserRouter([
 
@@ -35,6 +36,7 @@ export const router = createBrowserRouter([
       ...PermissionsRoute,
       ...ConfigRoute,
       ...OnboardingRoute,
+      ...ServicePackageRoute,
     ],
   },
 ]);
