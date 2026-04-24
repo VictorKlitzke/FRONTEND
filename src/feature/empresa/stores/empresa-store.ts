@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { EmpresaService, type EmpresaDTO } from "../services/empresa-service";
+import { EmpresaService, normalizeCompanyApiEnvelope, type EmpresaDTO } from "../services/empresa-service";
 
 type EmpresaPayload = Omit<EmpresaDTO, "userId">;
 
@@ -8,6 +8,7 @@ interface EmpresaState {
     companies: EmpresaDTO[];
     loading: boolean;
     error: string | null;
+    clearSession: () => void;
     createEmpresa: (data: EmpresaPayload, userId: number) => Promise<void>;
     fetchAll: () => Promise<void>;
     fetchByUserId: (userId: number) => Promise<EmpresaDTO | null>;
@@ -21,11 +22,13 @@ export const useEmpresaStore = create<EmpresaState>()(
             companies: [],
             loading: false,
             error: null,
+            clearSession: () => set({ company: null, companies: [], error: null, loading: false }),
             createEmpresa: async (data: EmpresaPayload, userId: number) => {
                 set({ loading: true, error: null });
                 try {
                     const res = await EmpresaService.createEmpresa({ ...data, userId });
-                    set({ company: res, companies: res?.id ? [res] : [] });
+                    const created = normalizeCompanyApiEnvelope(res);
+                    set({ company: created, companies: created?.id ? [created] : [] });
                     return res;
                 } catch (err: any) {
                     const message = err?.response?.data?.error?.description ?? err?.response?.data?.message ?? "Erro ao criar empresa";
@@ -45,13 +48,13 @@ export const useEmpresaStore = create<EmpresaState>()(
                 }
             },
             fetchByUserId: async (userId: number) => {
-                set({ loading: true, error: null });
+                set({ company: null, loading: true, error: null });
                 try {
                     const data = await EmpresaService.getByUserId(userId);
                     set({ company: data, loading: false });
                     return data;
                 } catch (err: any) {
-                    set({ loading: false, error: err?.response?.data?.message ?? "Erro ao buscar empresa" });
+                    set({ company: null, loading: false, error: err?.response?.data?.message ?? "Erro ao buscar empresa" });
                     return null;
                 }
             },

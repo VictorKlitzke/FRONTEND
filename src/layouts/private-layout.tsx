@@ -6,6 +6,7 @@ import { SidebarProvider } from "../components/ui/sidebar"
 import { AuthStore } from "@/feature/auth/stores/auth-store"
 import { BillingService } from "@/feature/billing/services/billing-service"
 import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store"
+import { hasRegisteredCompany } from "@/feature/empresa/services/empresa-service"
 import { useSettingsStore } from "@/feature/config/store/settings-store"
 import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup"
 import { useAlert } from "@/hooks/use-alert"
@@ -111,7 +112,7 @@ export const PrivateLayout = () => {
         if (!user?.id) return;
 
         const company = await fetchCompanyByUserId(user.id);
-        if (!company?.id) {
+        if (!hasRegisteredCompany(company)) {
           navigate("/empresa/cadastro", { replace: true });
           return;
         }

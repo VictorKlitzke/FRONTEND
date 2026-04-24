@@ -3,7 +3,7 @@ import { useEmpresaStore } from "../stores/empresa-store"
 import { useAlert } from "../../../hooks/use-alert"
 import { useNavigate } from "react-router-dom"
 import { AuthStore } from "../../auth/stores/auth-store"
-import type { EmpresaDTO } from "../services/empresa-service"
+import { hasRegisteredCompany, type EmpresaDTO } from "../services/empresa-service"
 import { EmpresaHeroPanel } from "./components/register/empresa-hero-panel"
 import { EmpresaFormCard } from "./components/register/empresa-form-card"
 import { isValidCpfOrCnpj, normalizeDocument } from "@/feature/auth/pages/components/register/document-validation"
@@ -29,7 +29,7 @@ export const EmpresaPage = () => {
     const loadCompany = async () => {
       if (!user?.id) return;
       const company = await fetchByUserId(user.id);
-      if (company?.active) {
+      if (hasRegisteredCompany(company) && company?.active) {
         navigate("/dashboard", { replace: true });
       }
     };
