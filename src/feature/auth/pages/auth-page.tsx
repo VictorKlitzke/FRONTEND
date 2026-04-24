@@ -44,10 +44,23 @@ export default function AuthPage() {
 
   useEffect(() => {
     setMounted(true)
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true })
+    if (!isAuthenticated) return
+
+    const redirectAuthenticatedUser = async () => {
+      const user = AuthStore.getState().user
+      if (!user?.id) return
+
+      const company = await fetchByUserId(user.id)
+      if (company) {
+        navigate('/dashboard', { replace: true })
+        return
+      }
+
+      navigate('/empresa/cadastro', { replace: true })
     }
-  }, [isAuthenticated, navigate])
+
+    void redirectAuthenticatedUser()
+  }, [fetchByUserId, isAuthenticated, navigate])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = heroRef.current?.getBoundingClientRect()
