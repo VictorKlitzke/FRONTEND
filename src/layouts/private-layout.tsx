@@ -5,6 +5,7 @@ import { HeaderComponents } from "../components/header"
 import { SidebarProvider } from "../components/ui/sidebar"
 import { AuthStore } from "@/feature/auth/stores/auth-store"
 import { BillingService } from "@/feature/billing/services/billing-service"
+import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store"
 import { useSettingsStore } from "@/feature/config/store/settings-store"
 import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup"
 import { useAlert } from "@/hooks/use-alert"
@@ -13,6 +14,7 @@ export const PrivateLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { isAuthenticated, initialized, bootstrap, logout, user } = AuthStore();
+  const fetchCompanyByUserId = useEmpresaStore((state) => state.fetchByUserId);
   const fetchSettings = useSettingsStore((state) => state.fetchSettings);
   const settings = useSettingsStore((state) => state.settings);
   const { showAlert } = useAlert();
@@ -100,11 +102,20 @@ export const PrivateLayout = () => {
     if (!isAuthenticated) return;
     if (user?.tipoConta?.toLowerCase() === "admin") return;
     if (location.pathname === "/planos") return;
+    if (location.pathname === "/empresa/cadastro") return;
 
     const searchParams = new URLSearchParams(location.search);
     const successCheckout = searchParams.get("success") === "1";
 
     const checkPlan = async () => {
+        if (!user?.id) return;
+
+        const company = await fetchCompanyByUserId(user.id);
+        if (!company?.id) {
+          navigate("/empresa/cadastro", { replace: true });
+          return;
+        }
+
         const status = await BillingService.getStatus();
         const planStatus = String(status?.plan?.status ?? "").toLowerCase();
         const planCode = String(status?.plan?.plan_code ?? "").toLowerCase();
@@ -155,7 +166,7 @@ export const PrivateLayout = () => {
     }
 
     checkPlan();
-  }, [isAuthenticated, location.pathname, location.search, navigate, user?.tipoConta]);
+  }, [fetchCompanyByUserId, isAuthenticated, location.pathname, location.search, navigate, user?.id, user?.tipoConta]);
 
   if (!initialized) {
     return null;
