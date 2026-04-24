@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createServicePackage, deleteServicePackage, getAllServicePackages, updateServicePackage } from "../services/service-package-service";
+import { createServicePackage, deleteServicePackage, getServicePackagesByCompany, updateServicePackage } from "../services/service-package-service";
 
 
 export interface ServicePackage {
@@ -36,7 +36,7 @@ interface ServicePackageStore {
   packages: ServicePackage[];
   loading: boolean;
 
-  fetchAll: () => Promise<void>;
+  fetchAll: (companyId: number) => Promise<void>;
   createPackage: (data: CreateServicePackageDTO) => Promise<void>;
   updatePackage: (id: number, data: UpdateServicePackageDTO) => Promise<void>;
   deletePackage: (id: number) => Promise<void>;
@@ -47,10 +47,10 @@ export const useServicePackageStore = create<ServicePackageStore>(
     packages: [],
     loading: false,
 
-    fetchAll: async () => {
+    fetchAll: async (companyId) => {
       set({ loading: true });
       try {
-        const data = await getAllServicePackages();
+        const data = await getServicePackagesByCompany(companyId);
         set({ packages: data ?? [] });
       } catch (error) {
         console.error("Erro ao buscar pacotes", error);
@@ -63,11 +63,7 @@ export const useServicePackageStore = create<ServicePackageStore>(
     createPackage: async (data) => {
       set({ loading: true });
       try {
-        const created = await createServicePackage(data);
-
-        set({
-          packages: [created, ...get().packages],
-        });
+        await createServicePackage(data);
       } catch (error) {
         console.error("Erro ao criar pacote", error);
         throw error;

@@ -1,4 +1,4 @@
-import { BarChart3, Box, Calendar, Settings, User, Shield, Users, Layers } from "lucide-react";
+import { BarChart3, Box, Calendar, Settings, User, Shield, Layers } from "lucide-react";
 
 export type MenuItem = {
   label: string;

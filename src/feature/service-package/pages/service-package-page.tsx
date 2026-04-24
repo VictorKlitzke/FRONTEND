@@ -15,10 +15,12 @@ import { useAlert } from "@/hooks/use-alert";
 import { useServicePackageStore } from "../store/service-package-store";
 import { ServicePackageCreate } from "../components/service-pakage-create";
 import { Package } from "lucide-react";
+import { AuthStore } from "@/feature/auth/stores/auth-store";
 
 export const ServicePackagePage = () => {
   const { showAlert } = useAlert();
-  const { company } = useEmpresaStore();
+  const { company, fetchByUserId } = useEmpresaStore();
+  const { user } = AuthStore();
 
   const {
     packages,
@@ -35,8 +37,15 @@ export const ServicePackagePage = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (!company?.id && user?.id) {
+      void fetchByUserId(user.id);
+      return;
+    }
+
+    if (company?.id) {
+      void fetchAll(company.id);
+    }
+  }, [company?.id, fetchAll, fetchByUserId, user?.id]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -49,6 +58,7 @@ export const ServicePackagePage = () => {
         await createPackage({ ...data, company_id: company.id });
         showAlert({ title: "Sucesso", message: "Criado", type: "success" });
       }
+      await fetchAll(company.id);
 
       setIsDialogOpen(false);
       setEditingId(null);
@@ -100,7 +110,12 @@ export const ServicePackagePage = () => {
               setFormInitial(item);
               setIsDialogOpen(true);
             }}
-            onDelete={deletePackage}
+            onDelete={async (id) => {
+              await deletePackage(id);
+              if (company?.id) {
+                await fetchAll(company.id);
+              }
+            }}
           />
         </CardContent>
       </Card>
