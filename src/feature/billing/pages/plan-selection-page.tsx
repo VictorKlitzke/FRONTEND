@@ -78,7 +78,9 @@ export const PlanSelectionPage = () => {
       <div className="mx-auto w-full max-w-5xl space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-3xl font-bold">Escolha seu plano</h1>
-          <p className="text-sm text-muted-foreground">Finalize sua empresa selecionando o plano ideal.</p>
+          <p className="text-sm text-muted-foreground">
+            Ao criar sua conta, voce recebe automaticamente 7 dias gratis no plano Free.
+          </p>
           {statusMessage ? (
             <p className="text-sm text-slate-600">{statusMessage}</p>
           ) : null}
