@@ -2,6 +2,14 @@ import { create } from "zustand"
 import { AuthService } from "../services/auth-services";
 import { clearBranding } from "@/feature/config/utils/apply-branding";
 
+function clearEmpresaStoreSession(): void {
+  void import("@/feature/empresa/stores/empresa-store").then((mod) => {
+    mod.useEmpresaStore.getState().clearSession();
+  }).catch(() => {
+    // ignore
+  });
+}
+
 export interface User {
   id: number;
   name: string;
@@ -71,12 +79,14 @@ export const AuthStore = create<AuthState>()(
       } finally {
         sessionStorage.removeItem("settings-storage");
         clearBranding();
+        clearEmpresaStoreSession();
         set({ user: null, isAuthenticated: false, initialized: true, loading: false });
       }
     },
     resetAuth: () => {
       sessionStorage.removeItem("settings-storage");
       clearBranding();
+      clearEmpresaStoreSession();
       set({ user: null, isAuthenticated: false, initialized: true, loading: false });
     },
   })
