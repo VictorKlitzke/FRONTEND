@@ -35,9 +35,10 @@ export const createServicePackage = async (
   return response.data;
 };
 
-// LIST ALL (ESSENCIAL pro store)
-export const getAllServicePackages = async (): Promise<ServicePackageDTO[]> => {
-  const response = await api.get("/service-packages");
+export const getServicePackagesByCompany = async (
+  companyId: number
+): Promise<ServicePackageDTO[]> => {
+  const response = await api.get(`/service-packages/company/${companyId}`);
   return response.data;
 };
 
