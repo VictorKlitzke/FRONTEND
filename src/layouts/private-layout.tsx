@@ -108,9 +108,20 @@ export const PrivateLayout = () => {
         const status = await BillingService.getStatus();
         const planStatus = String(status?.plan?.status ?? "").toLowerCase();
         const planCode = String(status?.plan?.plan_code ?? "").toLowerCase();
+        const periodEnd = status?.plan?.current_period_end;
         const isActive = planStatus === "active" || planStatus === "trialing";
         const hasPlan = planCode.length > 0;
-        if (!isActive && !hasPlan) navigate("/planos", { replace: true });
+
+        if (planCode === "trial" && planStatus === "trialing" && periodEnd) {
+          const now = new Date();
+          const end = new Date(periodEnd);
+          if (now > end) {
+            navigate("/planos", { replace: true });
+            return;
+          }
+        }
+
+        if (!isActive || !hasPlan) navigate("/planos", { replace: true });
     };
 
     if (successCheckout) {

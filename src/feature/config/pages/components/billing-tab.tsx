@@ -18,12 +18,20 @@ type InvoiceDTO = {
 export const BillingTab = () => {
   const navigate = useNavigate();
   const [invoices, setInvoices] = useState<InvoiceDTO[]>([]);
+  const [planCode, setPlanCode] = useState<string>("trial");
+  const [planStatus, setPlanStatus] = useState<string>("trialing");
+  const [trialEndsAt, setTrialEndsAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
+        const status = await BillingService.getStatus();
+        setPlanCode(String(status?.plan?.plan_code ?? "trial").toLowerCase());
+        setPlanStatus(String(status?.plan?.status ?? "trialing").toLowerCase());
+        setTrialEndsAt(status?.plan?.current_period_end ?? null);
+
         const month = format(new Date(), "yyyy-MM");
         const data = await BillingService.getInvoices(month);
         const list = Array.isArray(data) ? data : data?.invoices ?? [];
@@ -36,6 +44,20 @@ export const BillingTab = () => {
     };
     load();
   }, []);
+
+  const planNameMap: Record<string, string> = {
+    trial: "Free (7 dias)",
+    basic: "Básico",
+    medium: "Médio",
+    advanced: "Avançado",
+  };
+
+  const displayPlan = planNameMap[planCode] ?? "Plano";
+  const isActive = planStatus === "active" || planStatus === "trialing";
+  const trialText =
+    planCode === "trial" && trialEndsAt
+      ? `Teste grátis até ${format(new Date(trialEndsAt), "dd/MM/yyyy")}`
+      : null;
 
   return (
     <div className="space-y-5">
@@ -60,12 +82,15 @@ export const BillingTab = () => {
             <div>
               <p className="text-xs text-slate-500 mb-1">Plano atual</p>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-slate-800">Pro Mensal</span>
+                <span className="text-lg font-bold text-slate-800">{displayPlan}</span>
                 <span className="brand-success-pill inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                   <Zap size={10} />
-                  Ativo
+                  {isActive ? "Ativo" : "Inativo"}
                 </span>
               </div>
+              {trialText ? (
+                <p className="text-xs text-slate-500 mt-1">{trialText}</p>
+              ) : null}
             </div>
             <button
               onClick={() => navigate('/planos')}
