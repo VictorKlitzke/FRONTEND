@@ -10,7 +10,7 @@ export interface ServicePackageForm {
   service_id: number;
   quantidade_sessoes: number;
   frequencia: string;
-  dia_semana: string;
+  dia_semana?: string;
   horario: string;
   data_inicio: string;
   data_fim?: string;
@@ -29,6 +29,20 @@ export const ServicePackageCreate = ({
   loading,
   onCancel,
 }: Props) => {
+  const weekdayMap = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const resolveWeekdayFromDate = (dateInput: string): string => {
+    const raw = String(dateInput || "").trim();
+    if (!raw) return "segunda";
+    const date = new Date(`${raw}T00:00:00`);
+    if (Number.isNaN(date.getTime())) return "segunda";
+    return weekdayMap[date.getDay()] ?? "segunda";
+  };
+  const normalizeTime = (timeInput: string): string => {
+    const raw = String(timeInput || "").trim();
+    if (!raw) return "16:00";
+    return raw.length >= 5 ? raw.slice(0, 5) : raw;
+  };
+
   const { company } = useEmpresaStore();
 
   const [clients, setClients] = useState<ClientDTO[]>([]);
@@ -45,8 +59,8 @@ export const ServicePackageCreate = ({
     service_id: initialValues?.service_id ?? 0,
     quantidade_sessoes: initialValues?.quantidade_sessoes ?? 4,
     frequencia: initialValues?.frequencia ?? "semanal",
-    dia_semana: initialValues?.dia_semana ?? "quinta",
-    horario: initialValues?.horario ?? "16:00",
+    dia_semana: initialValues?.dia_semana ?? resolveWeekdayFromDate(initialValues?.data_inicio ?? ""),
+    horario: normalizeTime(initialValues?.horario ?? "16:00"),
     data_inicio: initialValues?.data_inicio ?? "",
     data_fim: initialValues?.data_fim ?? "",
   });
@@ -71,7 +85,12 @@ export const ServicePackageCreate = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await onSubmit(form);
+    await onSubmit({
+      ...form,
+      // Dia da semana é derivado da data de início para evitar redundância no formulário.
+      dia_semana: resolveWeekdayFromDate(form.data_inicio),
+      horario: normalizeTime(form.horario),
+    });
   };
 
   return (
@@ -117,7 +136,7 @@ export const ServicePackageCreate = ({
       </div>
 
       {/* CONFIG */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
         <div>
           <label className="text-sm font-medium">Sessões</label>
@@ -127,6 +146,8 @@ export const ServicePackageCreate = ({
             value={form.quantidade_sessoes}
             onChange={handleChange}
             className="w-full border rounded-xl p-2 mt-1"
+            min={1}
+            required
           />
         </div>
 
@@ -143,23 +164,6 @@ export const ServicePackageCreate = ({
           </select>
         </div>
 
-        <div>
-          <label className="text-sm font-medium">Dia</label>
-          <select
-            name="dia_semana"
-            value={form.dia_semana}
-            onChange={handleChange}
-            className="w-full border rounded-xl p-2 mt-1"
-          >
-            <option value="domingo">Domingo</option>
-            <option value="segunda">Segunda</option>
-            <option value="terca">Terça</option>
-            <option value="quarta">Quarta</option>
-            <option value="quinta">Quinta</option>
-            <option value="sexta">Sexta</option>
-            <option value="sabado">Sábado</option>
-          </select>
-        </div>
       </div>
 
       {/* DATAS */}
@@ -184,6 +188,7 @@ export const ServicePackageCreate = ({
             value={form.data_inicio}
             onChange={handleChange}
             className="w-full border rounded-xl p-2 mt-1"
+            required
           />
         </div>
 

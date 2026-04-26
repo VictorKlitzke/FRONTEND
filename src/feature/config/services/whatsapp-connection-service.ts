@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const rawBaseUrl = import.meta.env.VITE_WHATSAPP_SERVICE_URL ?? "http://127.0.0.1:3001";
+const rawBaseUrl = (import.meta.env.VITE_WHATSAPP_SERVICE_URL ?? "/whatsapp-api").trim();
 const normalizedBaseUrl = rawBaseUrl.endsWith("/") ? rawBaseUrl.slice(0, -1) : rawBaseUrl;
 const authToken = (import.meta.env.VITE_WHATSAPP_SERVICE_TOKEN ?? "agenda-pro-local-token").trim();
 

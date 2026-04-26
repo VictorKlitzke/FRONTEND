@@ -31,10 +31,15 @@ export interface UpdateServicePackageDTO
 export const createServicePackage = async (
   data: CreateServicePackageDTO
 ): Promise<ServicePackageDTO> => {
-  const response = await api.post("/service-packages", data);
+  const payload = {
+    ...data,
+    data_fim: data.data_fim && data.data_fim.trim() !== "" ? data.data_fim : null,
+  };
+  const response = await api.post("/service-packages", payload);
   return response.data;
 };
 
+export const getAllServicePackages = async (
 export const getServicePackagesByCompany = async (
   companyId: number
 ): Promise<ServicePackageDTO[]> => {

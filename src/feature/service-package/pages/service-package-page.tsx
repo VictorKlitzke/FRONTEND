@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -19,8 +21,6 @@ import { AuthStore } from "@/feature/auth/stores/auth-store";
 
 export const ServicePackagePage = () => {
   const { showAlert } = useAlert();
-  const { company, fetchByUserId } = useEmpresaStore();
-  const { user } = AuthStore();
 
   const {
     packages,
@@ -37,6 +37,15 @@ export const ServicePackagePage = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
+    if (user?.id && !company?.id) {
+      fetchByUserId(user.id);
+    }
+  }, [company?.id, fetchByUserId, user?.id]);
+
+  useEffect(() => {
+    if (!company?.id) return;
+    fetchAll(company.id);
+  }, [company?.id, fetchAll]);
     if (!company?.id && user?.id) {
       void fetchByUserId(user.id);
       return;
@@ -46,7 +55,7 @@ export const ServicePackagePage = () => {
       void fetchAll(company.id);
     }
   }, [company?.id, fetchAll, fetchByUserId, user?.id]);
-
+      
   const onSubmit = async (data: any) => {
     try {
       if (!company?.id) throw new Error("Empresa não encontrada");
@@ -88,6 +97,10 @@ export const ServicePackagePage = () => {
           </DialogTrigger>
 
           <DialogContent>
+            <DialogTitle>{editingId ? "Editar pacote" : "Novo pacote"}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do pacote para definir frequência e sessões do cliente.
+            </DialogDescription>
             <ServicePackageCreate
               initialValues={formInitial}
               onSubmit={onSubmit}

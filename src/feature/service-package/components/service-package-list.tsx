@@ -6,6 +6,8 @@ export interface ServicePackageListItem {
   id: number;
   client_id: number;
   service_id: number;
+  client_name?: string;
+  service_name?: string;
   quantidade_sessoes: number;
   frequencia: string;
   dia_semana: string;
@@ -36,6 +38,8 @@ export const ServicePackageList = ({
     const s = search.toLowerCase();
 
     return data.filter((item) =>
+      (item.client_name ?? "").toLowerCase().includes(s) ||
+      (item.service_name ?? "").toLowerCase().includes(s) ||
       item.client_id.toString().includes(s) ||
       item.service_id.toString().includes(s) ||
       item.frequencia.toLowerCase().includes(s)
@@ -92,8 +96,8 @@ export const ServicePackageList = ({
               {filtered.map((item) => (
                 <tr key={item.id} className="border-t hover:bg-gray-50">
 
-                  <td className="p-3">#{item.client_id}</td>
-                  <td className="p-3">#{item.service_id}</td>
+                  <td className="p-3">{item.client_name || `#${item.client_id}`}</td>
+                  <td className="p-3">{item.service_name || `#${item.service_id}`}</td>
                   <td className="p-3">{item.quantidade_sessoes}</td>
                   <td className="p-3 capitalize">{item.frequencia}</td>
                   <td className="p-3 capitalize">{item.dia_semana}</td>
