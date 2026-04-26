@@ -22,7 +22,7 @@ export interface CreateServicePackageDTO {
   service_id: number;
   quantidade_sessoes: number;
   frequencia: string;
-  dia_semana: string;
+  dia_semana?: string;
   horario: string;
   data_inicio: string;
   data_fim?: string | null;
@@ -50,6 +50,7 @@ export const useServicePackageStore = create<ServicePackageStore>(
     fetchAll: async (companyId) => {
       set({ loading: true });
       try {
+        const data = await getServicePackagesByCompany(companyId);
         set({ packages: data ?? [] });
       } catch (error) {
         console.error("Erro ao buscar pacotes", error);
@@ -63,7 +64,7 @@ export const useServicePackageStore = create<ServicePackageStore>(
       set({ loading: true });
       try {
         await createServicePackage(data);
-        const refreshed = await getAllServicePackages(data.company_id);
+        const refreshed = await getServicePackagesByCompany(data.company_id);
         set({ packages: refreshed ?? [] });
       } catch (error) {
         console.error("Erro ao criar pacote", error);

@@ -21,6 +21,8 @@ import { AuthStore } from "@/feature/auth/stores/auth-store";
 
 export const ServicePackagePage = () => {
   const { showAlert } = useAlert();
+  const { user } = AuthStore();
+  const { company, fetchByUserId } = useEmpresaStore();
 
   const {
     packages,
@@ -46,15 +48,6 @@ export const ServicePackagePage = () => {
     if (!company?.id) return;
     fetchAll(company.id);
   }, [company?.id, fetchAll]);
-    if (!company?.id && user?.id) {
-      void fetchByUserId(user.id);
-      return;
-    }
-
-    if (company?.id) {
-      void fetchAll(company.id);
-    }
-  }, [company?.id, fetchAll, fetchByUserId, user?.id]);
       
   const onSubmit = async (data: any) => {
     try {
