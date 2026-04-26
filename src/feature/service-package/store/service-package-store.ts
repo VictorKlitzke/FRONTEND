@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { createServicePackage, deleteServicePackage, getAllServicePackages, updateServicePackage } from "../services/service-package-service";
+import { createServicePackage, deleteServicePackage, getServicePackagesByCompany, updateServicePackage } from "../services/service-package-service";
 
 
 export interface ServicePackage {
@@ -50,7 +50,6 @@ export const useServicePackageStore = create<ServicePackageStore>(
     fetchAll: async (companyId) => {
       set({ loading: true });
       try {
-        const data = await getAllServicePackages(companyId);
         set({ packages: data ?? [] });
       } catch (error) {
         console.error("Erro ao buscar pacotes", error);

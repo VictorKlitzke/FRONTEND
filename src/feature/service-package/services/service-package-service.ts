@@ -40,6 +40,7 @@ export const createServicePackage = async (
 };
 
 export const getAllServicePackages = async (
+export const getServicePackagesByCompany = async (
   companyId: number
 ): Promise<ServicePackageDTO[]> => {
   const response = await api.get(`/service-packages/company/${companyId}`);

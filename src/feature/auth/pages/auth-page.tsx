@@ -3,6 +3,7 @@ import { useEffect, useState, useRef, useCallback } from "react"
 import { Input } from "../../../components/ui/input"
 import { AuthStore } from "../stores/auth-store"
 import { useEmpresaStore } from "../../empresa/stores/empresa-store"
+import { hasRegisteredCompany } from "../../empresa/services/empresa-service"
 import { useAlert } from "../../../hooks/use-alert"
 import { useNavigate } from "react-router-dom"
 
@@ -41,13 +42,29 @@ export default function AuthPage() {
   const heroRef = useRef<HTMLDivElement>(null)
   const [parallax, setParallax] = useState({ x: 0, y: 0 })
   const [mounted, setMounted] = useState(false)
+  /** Evita corrida: useEffect(isAuthenticated) não pode “ganhar” do handleLogin e mandar pro dashboard com empresa antiga no store. */
+  const loginRedirectInProgressRef = useRef(false)
 
   useEffect(() => {
     setMounted(true)
-    if (isAuthenticated) {
-      navigate('/dashboard', { replace: true })
+    if (!isAuthenticated) return
+    if (loginRedirectInProgressRef.current) return
+
+    const redirectAuthenticatedUser = async () => {
+      const user = AuthStore.getState().user
+      if (!user?.id) return
+
+      const company = await fetchByUserId(user.id)
+      if (hasRegisteredCompany(company)) {
+        navigate('/dashboard', { replace: true })
+        return
+      }
+
+      navigate('/empresa/cadastro', { replace: true })
     }
-  }, [isAuthenticated, navigate])
+
+    void redirectAuthenticatedUser()
+  }, [fetchByUserId, isAuthenticated, navigate])
 
   const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     const rect = heroRef.current?.getBoundingClientRect()
@@ -72,11 +89,12 @@ export default function AuthPage() {
       })
       return
     }
+    loginRedirectInProgressRef.current = true
     try {
       await onLogin(email, password)
       const user = AuthStore.getState().user
       const company = await fetchByUserId(user!.id)
-      if (company) {
+      if (hasRegisteredCompany(company)) {
         navigate('/dashboard', { replace: true })
         return
       }
@@ -87,6 +105,8 @@ export default function AuthPage() {
         message: "Erro ao autenticar.",
         type: "destructive",
       })
+    } finally {
+      loginRedirectInProgressRef.current = false
     }
   }
 

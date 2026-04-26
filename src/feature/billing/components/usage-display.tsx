@@ -10,6 +10,7 @@ import { Progress } from "@/components/ui/progress";
 
 export function UsageDisplay() {
   const [usage, setUsage] = useState<UsageStats | null>(null);
+  const [trialEndAt, setTrialEndAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -22,6 +23,8 @@ export function UsageDisplay() {
       setLoading(true);
       const data = await BillingService.getUsage();
       setUsage(data);
+      const status = await BillingService.getStatus();
+      setTrialEndAt(status?.plan?.current_period_end ?? null);
     } catch (error) {
       console.error("Erro ao buscar uso:", error);
     } finally {
@@ -53,6 +56,16 @@ export function UsageDisplay() {
 
   const isNearLimit = usage.percentage >= 80;
   const isAtLimit = usage.remaining <= 0;
+  const trialDaysLeft =
+    usage.plan === "trial" && trialEndAt
+      ? Math.max(
+          0,
+          Math.ceil(
+            (new Date(trialEndAt).getTime() - new Date().getTime()) /
+              (1000 * 60 * 60 * 24)
+          )
+        )
+      : null;
 
   return (
     <Card>
@@ -66,7 +79,11 @@ export function UsageDisplay() {
         </CardDescription>
         {usage.plan === "trial" && (
           <div className="mt-2 p-2 bg-yellow-100 text-yellow-800 rounded text-xs">
-            Você está no período de avaliação gratuito (7 dias). Aproveite para testar todos os recursos!
+            Você está no período de avaliação gratuito (7 dias)
+            {trialEndAt
+              ? ` até ${new Date(trialEndAt).toLocaleDateString("pt-BR")}`
+              : ""}.
+            {trialDaysLeft !== null ? ` Restam ${trialDaysLeft} dia(s).` : ""}
           </div>
         )}
       </CardHeader>
