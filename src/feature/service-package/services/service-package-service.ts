@@ -31,13 +31,18 @@ export interface UpdateServicePackageDTO
 export const createServicePackage = async (
   data: CreateServicePackageDTO
 ): Promise<ServicePackageDTO> => {
-  const response = await api.post("/service-packages", data);
+  const payload = {
+    ...data,
+    data_fim: data.data_fim && data.data_fim.trim() !== "" ? data.data_fim : null,
+  };
+  const response = await api.post("/service-packages", payload);
   return response.data;
 };
 
-// LIST ALL (ESSENCIAL pro store)
-export const getAllServicePackages = async (): Promise<ServicePackageDTO[]> => {
-  const response = await api.get("/service-packages");
+export const getAllServicePackages = async (
+  companyId: number
+): Promise<ServicePackageDTO[]> => {
+  const response = await api.get(`/service-packages/company/${companyId}`);
   return response.data;
 };
 

@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
@@ -15,10 +17,12 @@ import { useAlert } from "@/hooks/use-alert";
 import { useServicePackageStore } from "../store/service-package-store";
 import { ServicePackageCreate } from "../components/service-pakage-create";
 import { Package } from "lucide-react";
+import { AuthStore } from "@/feature/auth/stores/auth-store";
 
 export const ServicePackagePage = () => {
   const { showAlert } = useAlert();
-  const { company } = useEmpresaStore();
+  const { user } = AuthStore();
+  const { company, fetchByUserId } = useEmpresaStore();
 
   const {
     packages,
@@ -35,8 +39,15 @@ export const ServicePackagePage = () => {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    fetchAll();
-  }, [fetchAll]);
+    if (user?.id && !company?.id) {
+      fetchByUserId(user.id);
+    }
+  }, [company?.id, fetchByUserId, user?.id]);
+
+  useEffect(() => {
+    if (!company?.id) return;
+    fetchAll(company.id);
+  }, [company?.id, fetchAll]);
 
   const onSubmit = async (data: any) => {
     try {
@@ -78,6 +89,10 @@ export const ServicePackagePage = () => {
           </DialogTrigger>
 
           <DialogContent>
+            <DialogTitle>{editingId ? "Editar pacote" : "Novo pacote"}</DialogTitle>
+            <DialogDescription>
+              Preencha os dados do pacote para definir frequência e sessões do cliente.
+            </DialogDescription>
             <ServicePackageCreate
               initialValues={formInitial}
               onSubmit={onSubmit}
