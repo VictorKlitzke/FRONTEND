@@ -1,35 +1,18 @@
 import { create } from "zustand";
-import { createServicePackage, deleteServicePackage, getServicePackagesByCompany, updateServicePackage } from "../services/service-package-service";
+import {
+  createServicePackage,
+  deleteServicePackage,
+  getServicePackagesByCompany,
+  updateServicePackage,
+} from "../services/service-package-service";
+import type {
+  CreateServicePackageDTO,
+  ServicePackageDTO,
+  UpdateServicePackageDTO,
+} from "../services/service-package-service";
 
 
-export interface ServicePackage {
-  id: number;
-  client_id: number;
-  company_id: number;
-  service_id: number;
-  quantidade_sessoes: number;
-  frequencia: string;
-  dia_semana: string;
-  horario: string;
-  data_inicio: string;
-  data_fim?: string | null;
-  created_at?: string;
-}
-
-export interface CreateServicePackageDTO {
-  client_id: number;
-  company_id: number;
-  service_id: number;
-  quantidade_sessoes: number;
-  frequencia: string;
-  dia_semana?: string;
-  horario: string;
-  data_inicio: string;
-  data_fim?: string | null;
-}
-
-export interface UpdateServicePackageDTO
-  extends Partial<CreateServicePackageDTO> {}
+export type ServicePackage = ServicePackageDTO & { created_at?: string };
 
 
 interface ServicePackageStore {

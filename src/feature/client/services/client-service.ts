@@ -9,6 +9,9 @@ export interface ClientDTO {
 
 export type CreateClientRequest = Omit<ClientDTO, "id" | "active"> & { password?: string };
 export type UpdateClientRequest = CreateClientRequest;
+export interface CreateClientResponse {
+  id: number;
+}
 
 export class ClientService {
   static async getAll(): Promise<ClientDTO[]> {
@@ -21,9 +24,9 @@ export class ClientService {
     return data;
   }
 
-  static async create(payload: CreateClientRequest): Promise<ClientDTO | boolean> {
-    const response = await api.post(`/clients`, payload);
-    return response.status === 201;
+  static async create(payload: CreateClientRequest): Promise<CreateClientResponse> {
+    const { data } = await api.post(`/clients`, payload);
+    return data?.data ?? data;
   }
 
   static async update(id: number, payload: UpdateClientRequest): Promise<ClientDTO> {

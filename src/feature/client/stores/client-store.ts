@@ -43,12 +43,9 @@ export const useClientStore = create<ClientState>()(
       createClient: async (payload: CreateClientRequest) => {
         set({ loading: true, error: null });
         try {
-          const created = await ClientService.create(payload);
-          if (typeof created === "boolean") {
-            await ClientService.getAll().then((data) => set({ clients: data, loading: false }));
-          } else {
-            set((state) => ({ clients: [...state.clients, created], loading: false }));
-          }
+          await ClientService.create(payload);
+          const data = await ClientService.getAll();
+          set({ clients: data, loading: false });
         } catch (err: any) {
           set({ loading: false, error: err?.response?.data?.message ?? "Erro ao criar cliente" });
           throw err;
