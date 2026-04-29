@@ -13,11 +13,21 @@ import type { SettingsDTO } from "@/feature/config/services/settings-service";
 import { computeFreeSlotStarts, isDateInConfiguredWorkingDays } from "../../utils/free-slots";
 
 const appointmentSchema = z.object({
-  professionalId: z.coerce.number().int().min(1),
-  clientId: z.coerce.number().int().min(0),
+  professionalId: z.coerce
+    .number()
+    .refine((v) => Number.isFinite(v), "Selecione um profissional")
+    .int()
+    .min(1, "Selecione um profissional"),
+  clientId: z.coerce
+    .number()
+    .refine((v) => Number.isFinite(v), "Selecione um cliente"),
   clientFirstName: z.string().optional(),
   clientLastName: z.string().optional(),
-  serviceId: z.coerce.number().int().min(1),
+  serviceId: z.coerce
+    .number()
+    .refine((v) => Number.isFinite(v), "Selecione um serviço")
+    .int()
+    .min(1, "Selecione um serviço"),
   date: z.string().min(1, "Informe a data"),
   startTime: z.string().min(1, "Informe a hora de início"),
   endTime: z.string().min(1, "Informe a hora de término"),
