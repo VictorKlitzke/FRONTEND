@@ -197,11 +197,6 @@ export const AppointmentPage = () => {
       const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
       const startAt = `${data.date} ${data.startTime}:00`;
       const endAt = `${data.date} ${data.endTime}:00`;
-      const now = new Date();
-      if (startDate.getTime() < now.getTime()) {
-        showAlert({ title: "Erro", message: "Não é permitido agendar em datas passadas", type: "destructive" });
-        return;
-      }
 
       const hasConflict = (appointments || []).some((a) => {
         if (!a.startAt) return false;
