@@ -201,6 +201,7 @@ export const AppointmentPage = () => {
       const hasConflict = (appointments || []).some((a) => {
         if (!a.startAt) return false;
         if (editingId && a.id === editingId) return false;
+        if (a.professionalId !== data.professionalId) return false;
         const existingStart = parseStartAt(a.startAt).getTime();
         const existingEnd = existingStart + (a.durationMinutes ?? 0) * 60000;
         const newStart = startDate.getTime();
@@ -369,6 +370,9 @@ export const AppointmentPage = () => {
         professionals={professionalOptions}
         clients={clientOptions}
         services={serviceOptions}
+        scheduleSettings={settings}
+        existingAppointments={appointments ?? []}
+        editingAppointmentId={editingId}
         loading={loading}
         onSubmit={onSubmit}
         onCancelAppointment={editingId ? handleCancel : undefined}
@@ -389,6 +393,9 @@ export const AppointmentPage = () => {
         professionals={professionalOptions}
         clients={clientOptions}
         services={serviceOptions}
+        scheduleSettings={settings}
+        existingAppointments={appointments ?? []}
+        editingAppointmentId={null}
         loading={loading}
         onSubmit={handleApproveSubmit}
       />

@@ -13,6 +13,14 @@ export interface CreateClientResponse {
   id: number;
 }
 
+function normalizeClientBody(payload: CreateClientRequest): CreateClientRequest {
+  const digits = String(payload.phone ?? "").replace(/\D/g, "");
+  return {
+    ...payload,
+    phone: digits.length > 0 ? digits : "",
+  };
+}
+
 export class ClientService {
   static async getAll(): Promise<ClientDTO[]> {
     const { data } = await api.get(`/clients`);
@@ -25,14 +33,13 @@ export class ClientService {
   }
 
   static async create(payload: CreateClientRequest): Promise<CreateClientResponse> {
-    const { data } = await api.post(`/clients`, payload);
+    const { data } = await api.post(`/clients`, normalizeClientBody(payload));
     return data?.data ?? data;
   }
 
   static async update(id: number, payload: UpdateClientRequest): Promise<ClientDTO> {
-    console.log("Updating client", id, payload);
-    const { data } = await api.put(`/clients/${id}`, payload);
-    return data;
+    const { data } = await api.put(`/clients/${id}`, normalizeClientBody(payload));
+    return data?.data ?? data;
   }
 
   static async delete(id: number): Promise<void> {

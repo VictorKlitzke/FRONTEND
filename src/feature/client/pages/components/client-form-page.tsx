@@ -5,21 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "@/components/ui/form";
 
-const clientSchema = z.object({
-	name: z.string().min(3, "Nome inválido"),
-	phone: z
-		.string()
-		.optional()
-		.or(z.literal(""))
-		.refine(
-			(val) => {
-				const digits = String(val ?? "").replace(/\D/g, "");
-				return digits.length === 0 || digits.length >= 11;
-			},
-			{ message: "Se informar telefone, use ao menos 11 dígitos (DDD + número)" },
-		),
-	origem: z.string().optional().or(z.literal("")),
-});
+const clientSchema = z
+	.object({
+		name: z.string().min(3, "Nome inválido"),
+		phone: z.string().optional(),
+		origem: z.string().optional().or(z.literal("")),
+	})
+	.superRefine((data, ctx) => {
+		const digits = String(data.phone ?? "").replace(/\D/g, "");
+		if (digits.length > 0 && digits.length < 11) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				path: ["phone"],
+				message: "Se informar telefone, use ao menos 11 dígitos (DDD + número)",
+			});
+		}
+	});
 
 export type ClientForm = z.infer<typeof clientSchema>;
 

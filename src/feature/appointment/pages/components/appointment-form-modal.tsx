@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import type { AppointmentDTO } from "../../services/appointment-service";
+import type { SettingsDTO } from "@/feature/config/services/settings-service";
+import { computeFreeSlotStarts, isDateInConfiguredWorkingDays } from "../../utils/free-slots";
 
 const appointmentSchema = z.object({
   professionalId: z.coerce.number().int().min(1),
@@ -47,6 +50,12 @@ interface AppointmentFormModalProps {
   professionals: OptionItem[];
   clients: OptionItem[];
   services: OptionItem[];
+  /** Expediente e grade (mesmos campos da agenda pública em Configurações). */
+  scheduleSettings?: SettingsDTO | null;
+  /** Agendamentos da empresa para calcular sobreposição por profissional. */
+  existingAppointments?: AppointmentDTO[];
+  /** Ao editar, ignora este id no cálculo de conflito. */
+  editingAppointmentId?: number | null;
   loading?: boolean;
   onSubmit: (data: AppointmentFormValues) => void | Promise<void>;
   onCancelAppointment?: () => void | Promise<void>;
@@ -101,6 +110,9 @@ export function AppointmentFormModal({
   professionals,
   clients,
   services,
+  scheduleSettings,
+  existingAppointments,
+  editingAppointmentId,
   loading,
   onSubmit,
   onCancelAppointment,
@@ -121,6 +133,55 @@ export function AppointmentFormModal({
 
   const selectedServiceId = form.watch("serviceId");
   const selectedStartTime = form.watch("startTime");
+  const watchedDate = form.watch("date");
+  const watchedProfessionalId = form.watch("professionalId");
+
+  const freeSlots = useMemo(() => {
+    const service = services.find((item) => item.value === selectedServiceId);
+    const duration = Number(service?.durationMinutes ?? 0);
+    const professionalNumericId = Number(watchedProfessionalId);
+    if (!watchedDate || !Number.isFinite(professionalNumericId) || professionalNumericId < 1 || !duration) return [];
+    return computeFreeSlotStarts({
+      dateStr: watchedDate,
+      durationMinutes: duration,
+      professionalId: professionalNumericId,
+      appointments: existingAppointments ?? [],
+      settings: scheduleSettings ?? null,
+      excludeAppointmentId: editingAppointmentId ?? null,
+    });
+  }, [
+    watchedDate,
+    watchedProfessionalId,
+    selectedServiceId,
+    services,
+    existingAppointments,
+    scheduleSettings,
+    editingAppointmentId,
+  ]);
+
+  const scheduleHint = useMemo(() => {
+    const profId = Number(watchedProfessionalId);
+    if (!watchedDate || !Number.isFinite(profId) || profId < 1 || !selectedServiceId) {
+      return "Selecione profissional, cliente, serviço e data para ver os horários livres.";
+    }
+    const service = services.find((item) => item.value === selectedServiceId);
+    const duration = Number(service?.durationMinutes ?? 0);
+    if (!duration) return "Serviço sem duração cadastrada; não é possível sugerir horários.";
+    if (!isDateInConfiguredWorkingDays(watchedDate, scheduleSettings ?? null)) {
+      return "Este dia não está no expediente configurado (Configurações → agenda pública).";
+    }
+    if (freeSlots.length === 0) {
+      return "Nenhum horário livre neste dia para a duração do serviço e este profissional.";
+    }
+    return null;
+  }, [
+    watchedDate,
+    watchedProfessionalId,
+    selectedServiceId,
+    services,
+    scheduleSettings,
+    freeSlots.length,
+  ]);
 
   useEffect(() => {
     if (!selectedServiceId || !selectedStartTime) {
@@ -304,6 +365,35 @@ export function AppointmentFormModal({
                 )}
               />
             </div>
+
+            {scheduleHint ? (
+              <p className="text-xs text-muted-foreground">{scheduleHint}</p>
+            ) : null}
+
+            {freeSlots.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">Horários livres neste dia</div>
+                <p className="text-xs text-muted-foreground">
+                  Com base no expediente configurado e nos agendamentos do profissional. Toque para preencher início e fim.
+                </p>
+                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto rounded-md border border-dashed border-muted-foreground/25 p-2">
+                  {freeSlots.map((slot) => (
+                    <Button
+                      key={slot}
+                      type="button"
+                      variant={normalizeTimeValue(selectedStartTime) === slot ? "default" : "outline"}
+                      size="sm"
+                      className="h-8"
+                      onClick={() => {
+                        form.setValue("startTime", slot, { shouldValidate: true, shouldDirty: true });
+                      }}
+                    >
+                      {slot}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <FormField
               control={form.control}
