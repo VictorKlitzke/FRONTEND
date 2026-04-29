@@ -110,7 +110,8 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      <div className="w-full min-w-0">
+      <div className="w-full min-w-0 overflow-x-auto pb-1">
+        <div className="min-w-[700px] sm:min-w-0">
           {/* Week Days */}
           <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2 sm:mb-3 text-[10px] sm:text-xs font-medium text-muted-foreground">
             {WEEK_DAYS.map((d) => (
@@ -164,11 +165,11 @@ export function AppointmentCalendar({
                           e.stopPropagation();
                           onSelectAppointment?.(item.id);
                         }}
-                        className="max-w-full text-left text-[9px] sm:text-[10px] md:text-[11px] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition break-words"
+                        className="max-w-full text-left text-[9px] sm:text-[10px] md:text-[11px] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition"
                       >
                         <span className="font-medium tabular-nums">{formatTime(item.startAt)}</span>
-                        <span className="text-primary/80"> · </span>
-                        <span className="break-words">{item.title}</span>
+                        <span className="hidden sm:inline text-primary/80"> · </span>
+                        <span className="hidden sm:inline break-words">{item.title}</span>
                       </button>
                     ))}
 
@@ -195,6 +196,7 @@ export function AppointmentCalendar({
               );
             })}
           </div>
+        </div>
       </div>
     </div>
   );
