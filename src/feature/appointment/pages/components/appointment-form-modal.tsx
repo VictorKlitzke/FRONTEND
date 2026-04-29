@@ -63,7 +63,7 @@ export type AppointmentFormValues = z.output<typeof appointmentSchema>;
 type AppointmentFormInput = z.input<typeof appointmentSchema>;
 
 interface OptionItem {
-  value: number;
+  value: number | string;
   label: string;
   durationMinutes?: number;
 }
@@ -137,10 +137,10 @@ function toPositiveInt(value: unknown): number | null {
   return Math.trunc(n);
 }
 
-function findOptionById<T extends { value: number }>(items: T[], id: unknown): T | undefined {
+function findOptionById<T extends { value: number | string }>(items: T[], id: unknown): T | undefined {
   const n = toPositiveInt(id);
   if (n == null) return undefined;
-  return items.find((item) => Number(item.value) === n);
+  return items.find((item) => Number(item.value) === n || String(item.value) === String(id));
 }
 
 const selectFieldClass = cn(
@@ -269,9 +269,9 @@ export function AppointmentFormModal({
     const profId = toPositiveInt(watchedProfessionalId);
     const svcId = toPositiveInt(selectedServiceId);
     const dateKey = String(watchedDate ?? "").trim();
-    if (!dateKey || profId == null || svcId == null) {
-      return "Selecione profissional, serviço e data para ver os horários livres.";
-    }
+    if (!profId) return "Selecione um profissional para ver os horários livres.";
+    if (!svcId) return "Selecione um serviço para ver os horários livres.";
+    if (!dateKey) return "Selecione uma data para ver os horários livres.";
     const service = findOptionById(services, selectedServiceId);
     const duration = Number(service?.durationMinutes ?? 0);
     if (!duration) return "Serviço sem duração cadastrada; não é possível sugerir horários.";
@@ -356,7 +356,7 @@ export function AppointmentFormModal({
                   <FormControl>
                     <select
                       className={selectFieldClass}
-                      value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                      value={toPositiveInt(field.value) == null ? "" : String(field.value)}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       disabled={professionals.length === 0}
                     >
@@ -458,7 +458,7 @@ export function AppointmentFormModal({
                   <FormControl>
                     <select
                       className={selectFieldClass}
-                      value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                      value={toPositiveInt(field.value) == null ? "" : String(field.value)}
                       onChange={(e) => {
                         const selectedId = Number(e.target.value);
                         field.onChange(selectedId);
