@@ -7,7 +7,17 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from "
 
 const clientSchema = z.object({
 	name: z.string().min(3, "Nome inválido"),
-	phone: z.string().optional().or(z.literal("")),
+	phone: z
+		.string()
+		.optional()
+		.or(z.literal(""))
+		.refine(
+			(val) => {
+				const digits = String(val ?? "").replace(/\D/g, "");
+				return digits.length === 0 || digits.length >= 11;
+			},
+			{ message: "Se informar telefone, use ao menos 11 dígitos (DDD + número)" },
+		),
 	origem: z.string().optional().or(z.literal("")),
 });
 
@@ -47,7 +57,7 @@ export function ClientFormPage({ initialValues, onSubmit, loading, onCancel }: C
 					name="phone"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Telefone</FormLabel>
+							<FormLabel>Telefone (opcional)</FormLabel>
 							<FormControl>
 								<Input {...field} placeholder="Telefone" />
 							</FormControl>
