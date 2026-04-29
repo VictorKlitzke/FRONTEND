@@ -14,6 +14,14 @@ import { useSettingsStore } from "@/feature/config/store/settings-store";
 import { getSegmentLabels } from "@/shared/segments/segment-labels";
 import { useEmpresaStore } from "@/feature/empresa/stores/empresa-store";
 
+function splitClientDisplayName(full: string): { first: string; last: string } {
+  const t = full.trim();
+  if (!t) return { first: "", last: "" };
+  const i = t.indexOf(" ");
+  if (i === -1) return { first: t, last: "" };
+  return { first: t.slice(0, i), last: t.slice(i + 1).trim() };
+}
+
 export const AppointmentPage = () => {
   const { appointments, loading, fetchByCompany, createAppointment, updateAppointment, deleteAppointment } = useAppointmentStore();
   const { showAlert } = useAlert();
@@ -143,7 +151,15 @@ export const AppointmentPage = () => {
     baseDate.setHours(9, 0, 0, 0);
     const { date: d, time: t } = toDateTimeFields(baseDate.toISOString());
     setEditingId(null);
-    setInitialForm({ date: d, startTime: t, endTime: addMinutes(baseDate.toISOString(), 30), notes: "" });
+    setInitialForm({
+      date: d,
+      startTime: t,
+      endTime: addMinutes(baseDate.toISOString(), 30),
+      notes: "",
+      clientId: 0,
+      clientFirstName: "",
+      clientLastName: "",
+    });
     setIsOpen(true);
   };
 
@@ -160,10 +176,23 @@ export const AppointmentPage = () => {
     const startTime = `${hh}:${mi}`;
     const endTime = addMinutes(target.startAt, target.durationMinutes ?? 0);
 
+    let clientFirst = target.clientFirstName ?? "";
+    let clientLast = target.clientLastName ?? "";
+    if (!clientFirst && !clientLast && target.clientId) {
+      const row = clients.find((c) => c.id === target.clientId);
+      if (row?.name) {
+        const sp = splitClientDisplayName(row.name);
+        clientFirst = sp.first;
+        clientLast = sp.last;
+      }
+    }
+
     setEditingId(target.id ?? null);
     setInitialForm({
       professionalId: target.professionalId,
       clientId: target.clientId,
+      clientFirstName: clientFirst,
+      clientLastName: clientLast,
       serviceId: target.serviceId,
       date: baseDate,
       startTime,
@@ -214,8 +243,11 @@ export const AppointmentPage = () => {
         return;
       }
       const payload = {
-        companyId, professionalId: data.professionalId,
+        companyId,
+        professionalId: data.professionalId,
         clientId: data.clientId,
+        clientFirstName: (data.clientFirstName ?? "").trim(),
+        clientLastName: (data.clientLastName ?? "").trim(),
         serviceId: data.serviceId,
         startAt,
         endAt,
@@ -230,6 +262,8 @@ export const AppointmentPage = () => {
         await createAppointment(payload);
         showAlert({ title: "Sucesso", message: "Agendamento criado", type: "success" });
       }
+      await fetchByCompany();
+      await fetchClients();
       setIsOpen(false);
       setEditingId(null);
       setInitialForm(undefined);
@@ -291,6 +325,7 @@ export const AppointmentPage = () => {
       setApprovalInitialForm(undefined);
       await loadRequests();
       await fetchByCompany();
+      await fetchClients();
     } catch {
       showAlert({ title: "Erro", message: "Falha ao aprovar solicitação", type: "destructive" });
     }
@@ -306,8 +341,8 @@ export const AppointmentPage = () => {
           </div>
 
         </CardHeader>
-        <CardContent>
-          <div className="h-auto md:h-[calc(100vh-16rem)]">
+        <CardContent className="min-h-0">
+          <div className="w-full md:max-h-[min(72vh,calc(100vh-13rem))] md:overflow-y-auto md:overscroll-contain md:pr-1">
             <AppointmentCalendar
               currentMonth={currentMonth}
               appointments={calendarAppointments}

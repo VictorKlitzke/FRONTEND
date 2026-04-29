@@ -1,18 +1,22 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ComponentType, type ReactNode } from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { CalendarClock, Clock, Scissors, StickyNote, UserCircle2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { AppointmentDTO } from "../../services/appointment-service";
 import type { SettingsDTO } from "@/feature/config/services/settings-service";
 import { computeFreeSlotStarts, isDateInConfiguredWorkingDays } from "../../utils/free-slots";
 
 const appointmentSchema = z.object({
   professionalId: z.coerce.number().int().min(1),
-  clientId: z.coerce.number().int().min(1),
+  clientId: z.coerce.number().int().min(0),
+  clientFirstName: z.string().optional(),
+  clientLastName: z.string().optional(),
   serviceId: z.coerce.number().int().min(1),
   date: z.string().min(1, "Informe a data"),
   startTime: z.string().min(1, "Informe a hora de início"),
@@ -28,6 +32,19 @@ const appointmentSchema = z.object({
       code: z.ZodIssueCode.custom,
       path: ["endTime"],
       message: "Hora final deve ser maior que a inicial",
+    });
+  }
+
+  const cid = values.clientId;
+  if (cid >= 1) return;
+
+  const fn = (values.clientFirstName ?? "").trim();
+  const ln = (values.clientLastName ?? "").trim();
+  if (fn.length < 1 || ln.length < 1) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["clientFirstName"],
+      message: "Selecione um cliente cadastrado ou informe nome e sobrenome para cadastro automático.",
     });
   }
 });
@@ -64,6 +81,8 @@ interface AppointmentFormModalProps {
 const defaultValues: AppointmentFormValues = {
   professionalId: 0,
   clientId: 0,
+  clientFirstName: "",
+  clientLastName: "",
   serviceId: 0,
   date: "",
   startTime: "",
@@ -101,6 +120,60 @@ const normalizeTimeValue = (time: string): string => {
   return `${hour}:${minute}`;
 };
 
+/** RHF / selects podem expor id como string; comparações estritas falham no .find das opções. */
+function toPositiveInt(value: unknown): number | null {
+  const n = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(n) || n < 1) return null;
+  return Math.trunc(n);
+}
+
+function findOptionById<T extends { value: number }>(items: T[], id: unknown): T | undefined {
+  const n = toPositiveInt(id);
+  if (n == null) return undefined;
+  return items.find((item) => Number(item.value) === n);
+}
+
+const selectFieldClass = cn(
+  "h-10 w-full rounded-xl border border-slate-200/90 bg-white px-3 text-sm text-slate-900",
+  "shadow-sm transition-[box-shadow,border-color] cursor-pointer",
+  "focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/40",
+  "disabled:cursor-not-allowed disabled:opacity-50"
+);
+
+const inputFieldClass = cn(
+  "h-10 rounded-xl border-slate-200/90 bg-white shadow-sm",
+  "focus-visible:ring-primary/25"
+);
+
+function FormSection({
+  title,
+  icon: Icon,
+  children,
+  className,
+}: {
+  title: string;
+  icon: ComponentType<{ className?: string; strokeWidth?: number }>;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <section
+      className={cn(
+        "rounded-2xl border border-slate-200/60 bg-white p-4 sm:p-5 shadow-sm",
+        className
+      )}
+    >
+      <div className="mb-3 flex items-center gap-2.5 border-b border-slate-100/90 pb-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/[0.08] text-primary">
+          <Icon className="h-4 w-4" strokeWidth={2} />
+        </span>
+        <h3 className="text-sm font-semibold leading-tight text-slate-800">{title}</h3>
+      </div>
+      <div className="space-y-4">{children}</div>
+    </section>
+  );
+}
+
 export function AppointmentFormModal({
   open,
   onOpenChange,
@@ -122,27 +195,50 @@ export function AppointmentFormModal({
     defaultValues,
   });
 
+  const { reset } = form;
+
+  const initialSnapshot = useMemo(
+    () =>
+      JSON.stringify({
+        p: initialValues?.professionalId,
+        c: initialValues?.clientId,
+        s: initialValues?.serviceId,
+        d: initialValues?.date,
+        st: initialValues?.startTime,
+        et: initialValues?.endTime,
+        n: initialValues?.notes,
+        cf: initialValues?.clientFirstName,
+        cl: initialValues?.clientLastName,
+      }),
+    [initialValues]
+  );
+
   useEffect(() => {
-    form.reset({
+    if (!open) return;
+    reset({
       ...defaultValues,
       ...initialValues,
+      clientFirstName: initialValues?.clientFirstName ?? "",
+      clientLastName: initialValues?.clientLastName ?? "",
       startTime: normalizeTimeValue(initialValues?.startTime ?? defaultValues.startTime),
       endTime: normalizeTimeValue(initialValues?.endTime ?? defaultValues.endTime),
     });
-  }, [form, initialValues]);
+  }, [open, initialSnapshot, reset]);
 
   const selectedServiceId = form.watch("serviceId");
   const selectedStartTime = form.watch("startTime");
   const watchedDate = form.watch("date");
   const watchedProfessionalId = form.watch("professionalId");
+  const watchedClientId = form.watch("clientId");
 
   const freeSlots = useMemo(() => {
-    const service = services.find((item) => item.value === selectedServiceId);
+    const service = findOptionById(services, selectedServiceId);
     const duration = Number(service?.durationMinutes ?? 0);
-    const professionalNumericId = Number(watchedProfessionalId);
-    if (!watchedDate || !Number.isFinite(professionalNumericId) || professionalNumericId < 1 || !duration) return [];
+    const professionalNumericId = toPositiveInt(watchedProfessionalId);
+    const dateKey = String(watchedDate ?? "").trim();
+    if (!dateKey || professionalNumericId == null || !duration) return [];
     return computeFreeSlotStarts({
-      dateStr: watchedDate,
+      dateStr: dateKey,
       durationMinutes: duration,
       professionalId: professionalNumericId,
       appointments: existingAppointments ?? [],
@@ -160,14 +256,16 @@ export function AppointmentFormModal({
   ]);
 
   const scheduleHint = useMemo(() => {
-    const profId = Number(watchedProfessionalId);
-    if (!watchedDate || !Number.isFinite(profId) || profId < 1 || !selectedServiceId) {
-      return "Selecione profissional, cliente, serviço e data para ver os horários livres.";
+    const profId = toPositiveInt(watchedProfessionalId);
+    const svcId = toPositiveInt(selectedServiceId);
+    const dateKey = String(watchedDate ?? "").trim();
+    if (!dateKey || profId == null || svcId == null) {
+      return "Selecione profissional, serviço e data para ver os horários livres.";
     }
-    const service = services.find((item) => item.value === selectedServiceId);
+    const service = findOptionById(services, selectedServiceId);
     const duration = Number(service?.durationMinutes ?? 0);
     if (!duration) return "Serviço sem duração cadastrada; não é possível sugerir horários.";
-    if (!isDateInConfiguredWorkingDays(watchedDate, scheduleSettings ?? null)) {
+    if (!isDateInConfiguredWorkingDays(dateKey, scheduleSettings ?? null)) {
       return "Este dia não está no expediente configurado (Configurações → agenda pública).";
     }
     if (freeSlots.length === 0) {
@@ -188,7 +286,7 @@ export function AppointmentFormModal({
       return;
     }
 
-    const selectedService = services.find((item) => item.value === selectedServiceId);
+    const selectedService = findOptionById(services, selectedServiceId);
     const duration = Number(selectedService?.durationMinutes ?? 0);
     if (!Number.isFinite(duration) || duration <= 0) {
       return;
@@ -209,23 +307,46 @@ export function AppointmentFormModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-130">
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          {description ? <DialogDescription>{description}</DialogDescription> : null}
-        </DialogHeader>
+      <DialogContent
+        className={cn(
+          "flex min-h-0 max-h-[min(92dvh,880px)] flex-col gap-0 overflow-hidden p-0",
+          "w-[min(96vw,1120px)] max-w-[min(96vw,1120px)] sm:max-w-[min(96vw,1120px)]",
+          "rounded-2xl border-0 bg-white shadow-2xl shadow-slate-900/15 ring-1 ring-slate-200/90"
+        )}
+      >
+        <div className="relative shrink-0 border-b border-slate-100 bg-gradient-to-br from-slate-50 via-white to-teal-50/40 px-6 pb-5 pt-6 pr-14">
+          <div className="flex gap-3">
+            <div className="brand-icon-gradient flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-md shadow-primary/15">
+              <CalendarClock className="h-5 w-5 text-white" aria-hidden />
+            </div>
+            <DialogHeader className="flex-1 space-y-1.5 text-left">
+              <DialogTitle className="text-xl font-bold tracking-tight text-slate-900">{title}</DialogTitle>
+              {description ? (
+                <DialogDescription className="text-sm leading-relaxed text-slate-600">{description}</DialogDescription>
+              ) : null}
+            </DialogHeader>
+          </div>
+        </div>
+
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+          <form
+            onSubmit={form.handleSubmit(onSubmit)}
+            className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          >
+            <div className="custom-scrollbar min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">
+            <div className="grid gap-6 lg:grid-cols-2 lg:items-start lg:gap-8">
+            <div className="min-w-0 space-y-5">
+            <FormSection title="Cliente e profissional" icon={UserCircle2}>
             <FormField
               control={form.control}
               name="professionalId"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Profissional</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-slate-700">Profissional</FormLabel>
                   <FormControl>
                     <select
-                      className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-                      value={field.value ? String(field.value) : ""}
+                      className={selectFieldClass}
+                      value={field.value === undefined || field.value === null ? "" : String(field.value)}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                       disabled={professionals.length === 0}
                     >
@@ -238,7 +359,7 @@ export function AppointmentFormModal({
                     </select>
                   </FormControl>
                   {professionals.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Nenhum profissional disponível</div>
+                    <div className="text-xs text-amber-700/90">Nenhum profissional disponível</div>
                   ) : null}
                   <FormMessage />
                 </FormItem>
@@ -249,16 +370,23 @@ export function AppointmentFormModal({
               control={form.control}
               name="clientId"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Cliente</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-slate-700">Cliente</FormLabel>
                   <FormControl>
                     <select
-                      className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-                      value={field.value ? String(field.value) : ""}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
-                      disabled={clients.length === 0}
+                      className={selectFieldClass}
+                      value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        field.onChange(v);
+                        if (v >= 1) {
+                          form.setValue("clientFirstName", "");
+                          form.setValue("clientLastName", "");
+                        }
+                      }}
                     >
-                      <option value="" disabled>Selecione um cliente</option>
+                      <option value="" disabled>Selecione uma opção</option>
+                      <option value="0">Novo cliente — informar nome e sobrenome abaixo</option>
                       {clients.map((c) => (
                         <option key={c.value} value={String(c.value)}>
                           {c.label}
@@ -267,28 +395,65 @@ export function AppointmentFormModal({
                     </select>
                   </FormControl>
                   {clients.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Nenhum cliente disponível</div>
+                    <div className="rounded-lg border border-dashed border-amber-200/80 bg-amber-50/50 px-3 py-2 text-xs text-amber-900/80">
+                      Nenhum cliente cadastrado — escolha &quot;Novo cliente&quot; e preencha nome e sobrenome.
+                    </div>
                   ) : null}
                   <FormMessage />
                 </FormItem>
               )}
             />
 
+            {watchedClientId === 0 ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <FormField
+                  control={form.control}
+                  name="clientFirstName"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-slate-700">Nome</FormLabel>
+                      <FormControl>
+                        <Input {...field} className={inputFieldClass} placeholder="Nome" autoComplete="given-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="clientLastName"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-slate-700">Sobrenome</FormLabel>
+                      <FormControl>
+                        <Input {...field} className={inputFieldClass} placeholder="Sobrenome" autoComplete="family-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+            ) : null}
+            </FormSection>
+            </div>
+
+            <div className="min-w-0 space-y-5 lg:border-l lg:border-slate-200/80 lg:pl-8">
+            <FormSection title="Serviço e horário" icon={Scissors}>
             <FormField
               control={form.control}
               name="serviceId"
               render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Serviço</FormLabel>
+                <FormItem className="space-y-2">
+                  <FormLabel className="text-slate-700">Serviço</FormLabel>
                   <FormControl>
                     <select
-                      className="border-input bg-transparent h-9 w-full rounded-md border px-3 text-sm"
-                      value={field.value ? String(field.value) : ""}
+                      className={selectFieldClass}
+                      value={field.value === undefined || field.value === null ? "" : String(field.value)}
                       onChange={(e) => {
                         const selectedId = Number(e.target.value);
                         field.onChange(selectedId);
 
-                        const selectedService = services.find((item) => item.value === selectedId);
+                        const selectedService = findOptionById(services, selectedId);
                         const duration = Number(selectedService?.durationMinutes ?? 0);
                         const startTime = normalizeTimeValue(form.getValues("startTime"));
 
@@ -310,22 +475,22 @@ export function AppointmentFormModal({
                     </select>
                   </FormControl>
                   {services.length === 0 ? (
-                    <div className="text-xs text-muted-foreground">Nenhum serviço disponível</div>
+                    <div className="text-xs text-amber-700/90">Nenhum serviço disponível</div>
                   ) : null}
                   <FormMessage />
                 </FormItem>
               )}
             />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <FormField
                 control={form.control}
                 name="date"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Data</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-slate-700">Data</FormLabel>
                     <FormControl>
-                      <Input type="date" {...field} />
+                      <Input type="date" {...field} className={inputFieldClass} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -336,10 +501,10 @@ export function AppointmentFormModal({
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Início</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="text-slate-700">Início</FormLabel>
                     <FormControl>
-                      <Input type="time" {...field} />
+                      <Input type="time" {...field} className={inputFieldClass} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -350,12 +515,16 @@ export function AppointmentFormModal({
                 control={form.control}
                 name="endTime"
                 render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Fim</FormLabel>
+                  <FormItem className="space-y-2">
+                    <FormLabel className="inline-flex items-center gap-1.5 text-slate-700">
+                      <Clock className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                      Fim
+                    </FormLabel>
                     <FormControl>
                       <Input
                         type="time"
                         {...field}
+                        className={cn(inputFieldClass, "bg-slate-50/90")}
                         readOnly={Boolean(form.watch("serviceId"))}
                         disabled={Boolean(form.watch("serviceId"))}
                       />
@@ -367,61 +536,83 @@ export function AppointmentFormModal({
             </div>
 
             {scheduleHint ? (
-              <p className="text-xs text-muted-foreground">{scheduleHint}</p>
+              <p className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs leading-snug text-slate-600">{scheduleHint}</p>
             ) : null}
+            </FormSection>
+            </div>
+            </div>
 
             {freeSlots.length > 0 ? (
-              <div className="space-y-2">
-                <div className="text-sm font-medium">Horários livres neste dia</div>
-                <p className="text-xs text-muted-foreground">
-                  Com base no expediente configurado e nos agendamentos do profissional. Toque para preencher início e fim.
+              <div className="mt-6 rounded-2xl border border-slate-200/60 bg-slate-50/40 p-4 sm:p-5">
+                <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-800">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-500/15 text-teal-800">
+                      <Clock className="h-4 w-4" aria-hidden />
+                    </span>
+                    Horários livres neste dia
+                  </div>
+                  <span className="text-xs tabular-nums text-slate-500">{freeSlots.length} horários</span>
+                </div>
+                <p className="mb-3 text-xs leading-relaxed text-slate-500">
+                  Toque em um horário para preencher início e fim automaticamente.
                 </p>
-                <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto rounded-md border border-dashed border-muted-foreground/25 p-2">
-                  {freeSlots.map((slot) => (
-                    <Button
-                      key={slot}
-                      type="button"
-                      variant={normalizeTimeValue(selectedStartTime) === slot ? "default" : "outline"}
-                      size="sm"
-                      className="h-8"
-                      onClick={() => {
-                        form.setValue("startTime", slot, { shouldValidate: true, shouldDirty: true });
-                      }}
-                    >
-                      {slot}
-                    </Button>
-                  ))}
+                <div className="custom-scrollbar max-h-[10.5rem] overflow-y-auto rounded-xl border border-slate-200/70 bg-white p-2.5 sm:max-h-44">
+                  <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
+                    {freeSlots.map((slot) => (
+                      <Button
+                        key={slot}
+                        type="button"
+                        variant={normalizeTimeValue(selectedStartTime) === slot ? "default" : "outline"}
+                        size="sm"
+                        className={cn(
+                          "h-8 min-w-0 px-1.5 text-xs font-medium tabular-nums sm:h-8",
+                          normalizeTimeValue(selectedStartTime) === slot &&
+                            "btn-gradient border-0 text-white shadow-sm shadow-primary/20"
+                        )}
+                        onClick={() => {
+                          form.setValue("startTime", slot, { shouldValidate: true, shouldDirty: true });
+                        }}
+                      >
+                        {slot}
+                      </Button>
+                    ))}
+                  </div>
                 </div>
               </div>
             ) : null}
 
-            <FormField
-              control={form.control}
-              name="notes"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Observações</FormLabel>
-                  <FormControl>
-                    <Input {...field} placeholder="Opcional" />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="mt-6">
+              <FormSection title="Observações" icon={StickyNote}>
+                <FormField
+                  control={form.control}
+                  name="notes"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel className="text-slate-700">Detalhes opcionais</FormLabel>
+                      <FormControl>
+                        <Input {...field} className={inputFieldClass} placeholder="Observações para a equipe (opcional)" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </FormSection>
+            </div>
+            </div>
 
-            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <DialogFooter className="relative z-10 shrink-0 gap-2 border-t border-slate-200 bg-white px-5 py-4 shadow-[0_-4px_24px_-8px_rgba(15,23,42,0.08)] sm:px-6">
+              <Button type="button" variant="outline" className="rounded-xl border-slate-200" onClick={() => onOpenChange(false)}>
                 Cancelar
               </Button>
               {onCancelAppointment ? (
-                <Button type="button" variant="destructive" onClick={() => onCancelAppointment()}>
+                <Button type="button" variant="destructive" className="rounded-xl" onClick={() => onCancelAppointment()}>
                   Cancelar agendamento
                 </Button>
               ) : null}
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading} className="btn-gradient rounded-xl px-6 font-semibold text-white shadow-md shadow-primary/20 disabled:opacity-60">
                 {loading ? "Salvando..." : "Salvar"}
               </Button>
-            </div>
+            </DialogFooter>
           </form>
         </Form>
       </DialogContent>

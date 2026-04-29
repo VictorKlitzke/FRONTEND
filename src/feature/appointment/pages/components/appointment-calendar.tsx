@@ -86,7 +86,7 @@ export function AppointmentCalendar({
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex min-h-0 w-full flex-col">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4 sm:mb-6">
         <div className="text-xl sm:text-2xl font-semibold capitalize tracking-tight">
@@ -110,19 +110,18 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[700px]">
+      <div className="w-full min-w-0">
           {/* Week Days */}
-          <div className="grid grid-cols-7 mb-3 text-xs font-medium text-muted-foreground">
+          <div className="grid grid-cols-7 gap-0.5 sm:gap-1 mb-2 sm:mb-3 text-[10px] sm:text-xs font-medium text-muted-foreground">
             {WEEK_DAYS.map((d) => (
-              <div key={d} className="text-center">
+              <div key={d} className="text-center truncate px-0.5">
                 {d}
               </div>
             ))}
           </div>
 
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-2 sm:gap-3 flex-1 auto-rows-fr">
+          {/* Calendar Grid — auto row heights (avoid fr rows: they overlap siblings when height is indefinite) */}
+          <div className="grid w-full min-w-0 grid-cols-7 grid-flow-row gap-1 auto-rows-min sm:gap-2 md:gap-3">
             {days.map((date, idx) => {
               if (!date)
                 return <div key={idx} className="rounded-xl bg-transparent" />;
@@ -136,15 +135,15 @@ export function AppointmentCalendar({
                   key={idx}
                   onClick={() => onSelectDate(date)}
                   className={cn(
-                    "group rounded-xl sm:rounded-2xl border p-2 sm:p-3 flex flex-col transition-all cursor-pointer",
+                    "group min-w-0 rounded-lg sm:rounded-xl md:rounded-2xl border p-1.5 sm:p-2 md:p-3 flex flex-col transition-all cursor-pointer",
                     "hover:shadow-md hover:border-primary/60 hover:bg-primary/5",
                     isToday(date) &&
                       "border-primary shadow-sm bg-primary/5"
                   )}
                 >
                   {/* Day Header */}
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-xs sm:text-sm font-semibold">
+                  <div className="flex items-center justify-between gap-1 mb-1 sm:mb-2">
+                    <span className="text-[11px] sm:text-xs md:text-sm font-semibold tabular-nums">
                       {date.getDate()}
                     </span>
 
@@ -155,8 +154,8 @@ export function AppointmentCalendar({
                     )}
                   </div>
 
-                  {/* Appointments */}
-                  <div className="flex flex-col gap-1">
+                  {/* Appointments: row wrap on narrow cells to save vertical space */}
+                  <div className="flex flex-row flex-wrap gap-0.5 sm:gap-1 content-start">
                     {visibleItems.map((item) => (
                       <button
                         key={item.id ?? item.startAt}
@@ -165,9 +164,11 @@ export function AppointmentCalendar({
                           e.stopPropagation();
                           onSelectAppointment?.(item.id);
                         }}
-                        className="text-[10px] sm:text-[11px] px-2 py-1 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary truncate transition"
+                        className="max-w-full text-left text-[9px] sm:text-[10px] md:text-[11px] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg bg-primary/10 hover:bg-primary/20 text-primary transition break-words"
                       >
-                        {formatTime(item.startAt)} — {item.title}
+                        <span className="font-medium tabular-nums">{formatTime(item.startAt)}</span>
+                        <span className="text-primary/80"> · </span>
+                        <span className="break-words">{item.title}</span>
                       </button>
                     ))}
 
@@ -194,7 +195,6 @@ export function AppointmentCalendar({
               );
             })}
           </div>
-        </div>
       </div>
     </div>
   );

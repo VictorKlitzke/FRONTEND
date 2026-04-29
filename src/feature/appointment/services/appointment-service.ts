@@ -5,6 +5,8 @@ export interface AppointmentDTO {
   companyId: number;
   professionalId: number;
   clientId: number;
+  clientFirstName?: string | null;
+  clientLastName?: string | null;
   serviceId: number;
   startAt: string;
   endAt?: string;
@@ -30,7 +32,6 @@ export class AppointmentService {
   }
 
   static async create(payload: CreateAppointmentRequest): Promise<AppointmentDTO> {
-    console.log("Creating appointment with payload:", payload);
     const { data } = await api.post(`/appointment`, payload);
     const item = data?.dados ?? data?.data ?? data;
     return mapBackendAppointment(item);
@@ -55,6 +56,8 @@ function mapBackendAppointment(raw: any): AppointmentDTO {
     companyId: raw.companyId ?? raw.company_id ?? 0,
     professionalId: raw.professionalId ?? raw.professional_id ?? 0,
     clientId: raw.clientId ?? raw.client_id ?? 0,
+    clientFirstName: raw.clientFirstName ?? raw.client_first_name ?? null,
+    clientLastName: raw.clientLastName ?? raw.client_last_name ?? null,
     serviceId: raw.serviceId ?? raw.service_id ?? 0,
     startAt: raw.startAt ?? raw.start_at ?? "",
     endAt: raw.endAt ?? raw.end_at ?? undefined,
