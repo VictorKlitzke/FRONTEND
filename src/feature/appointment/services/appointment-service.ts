@@ -8,6 +8,8 @@ export interface AppointmentDTO {
   clientFirstName?: string | null;
   clientLastName?: string | null;
   serviceId: number;
+  /** Ordem do agendamento; o primeiro é o legado de `serviceId` quando houver. */
+  serviceIds?: number[];
   startAt: string;
   endAt?: string;
   durationMinutes: number;
@@ -51,6 +53,20 @@ export class AppointmentService {
 function mapBackendAppointment(raw: any): AppointmentDTO {
   if (!raw) return {} as AppointmentDTO;
 
+  const serviceIdsRaw = raw.serviceIds ?? raw.service_ids;
+  let serviceIds: number[] | undefined;
+  if (Array.isArray(serviceIdsRaw)) {
+    serviceIds = serviceIdsRaw.map((n: unknown) => Number(n)).filter((n) => Number.isFinite(n) && n > 0);
+  }
+
+  const singleService = raw.serviceId ?? raw.service_id ?? 0;
+  const resolvedServiceIds =
+    serviceIds && serviceIds.length > 0
+      ? serviceIds
+      : singleService
+        ? [Number(singleService)]
+        : undefined;
+
   return {
     id: raw.id ?? raw.ID ?? undefined,
     companyId: raw.companyId ?? raw.company_id ?? 0,
@@ -58,7 +74,8 @@ function mapBackendAppointment(raw: any): AppointmentDTO {
     clientId: raw.clientId ?? raw.client_id ?? 0,
     clientFirstName: raw.clientFirstName ?? raw.client_first_name ?? null,
     clientLastName: raw.clientLastName ?? raw.client_last_name ?? null,
-    serviceId: raw.serviceId ?? raw.service_id ?? 0,
+    serviceId: singleService,
+    serviceIds: resolvedServiceIds,
     startAt: raw.startAt ?? raw.start_at ?? "",
     endAt: raw.endAt ?? raw.end_at ?? undefined,
     durationMinutes: raw.durationMinutes ?? raw.duration_minutes ?? 0,

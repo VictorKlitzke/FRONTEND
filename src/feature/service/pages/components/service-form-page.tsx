@@ -9,7 +9,10 @@ const serviceSchema = z.object({
 	name: z.string().min(2, "Nome inválido"),
 	description: z.string().optional().or(z.literal("")),
 	price: z.coerce.number().min(0),
-	durationMinutes: z.coerce.number().int().min(1),
+	durationMinutes: z.preprocess(
+		(v) => (v === "" || v === null || v === undefined ? undefined : v),
+		z.coerce.number().int().min(0).optional()
+	),
 });
 
 export type ServiceForm = z.infer<typeof serviceSchema>;
@@ -25,7 +28,7 @@ interface ServiceFormPageProps {
 export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: ServiceFormPageProps) {
 	const form = useForm<ServiceFormInput, unknown, ServiceForm>({
 		resolver: zodResolver(serviceSchema),
-		defaultValues: initialValues || { name: "", description: "", price: 0, durationMinutes: 30 },
+		defaultValues: initialValues || { name: "", description: "", price: 0, durationMinutes: undefined },
 	});
 
 	return (
@@ -87,7 +90,7 @@ export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: 
 					name="durationMinutes"
 					render={({ field }) => (
 						<FormItem>
-							<FormLabel>Duração (minutos)</FormLabel>
+							<FormLabel>Duração (minutos) — opcional</FormLabel>
 							<FormControl>
 								<Input
 									name={field.name}
@@ -95,9 +98,9 @@ export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: 
 									onBlur={field.onBlur}
 									disabled={field.disabled}
 									type="number"
-									min={1}
+									min={0}
 									step={1}
-									placeholder="Duração"
+									placeholder="Vazio: definir no agendamento"
 									value={typeof field.value === "number" || typeof field.value === "string" ? field.value : ""}
 									onChange={(event) => field.onChange(event.target.value)}
 								/>

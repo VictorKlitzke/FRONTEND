@@ -33,7 +33,8 @@ export const AppointmentPage = () => {
   const { settings } = useSettingsStore();
   const labels = getSegmentLabels(settings?.segment);
 
-  const [currentMonth, setCurrentMonth] = useState(new Date());
+  /** Qualquer dia da semana visível no calendário semanal */
+  const [calendarViewDate, setCalendarViewDate] = useState(() => new Date());
   const [isOpen, setIsOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [initialForm, setInitialForm] = useState<Partial<AppointmentFormValues> | undefined>(undefined);
@@ -104,12 +105,36 @@ export const AppointmentPage = () => {
   );
 
   const calendarAppointments: CalendarAppointment[] = useMemo(
-    () => (appointments || []).map((a) => ({
-      id: a.id,
-      startAt: a.startAt,
-      title: `#${a.id ?? ""}`,
-    })),
-    [appointments]
+    () =>
+      (appointments || []).map((a) => {
+        const svcIds =
+          a.serviceIds && a.serviceIds.length > 0
+            ? a.serviceIds
+            : a.serviceId
+              ? [a.serviceId]
+              : [];
+        const nameParts = svcIds
+          .map((id) => services.find((s) => s.id === id)?.name)
+          .filter((x): x is string => Boolean(x));
+        const title =
+          nameParts.length > 0 ? nameParts.join(" + ") : a.serviceId ? `Serviço #${a.serviceId}` : "Agendamento";
+
+        let subtitle = [a.clientFirstName, a.clientLastName].filter(Boolean).join(" ").trim();
+        if (!subtitle && a.clientId) {
+          subtitle = clients.find((c) => c.id === a.clientId)?.name ?? "";
+        }
+
+        return {
+          id: a.id,
+          startAt: a.startAt,
+          endAt: a.endAt,
+          durationMinutes: a.durationMinutes,
+          title,
+          subtitle: subtitle || undefined,
+          colorKey: a.professionalId ?? a.id ?? 0,
+        };
+      }),
+    [appointments, services, clients]
   );
 
   const toDateTimeFields = (iso: string) => {
@@ -146,19 +171,26 @@ export const AppointmentPage = () => {
   };
 
   const handleNew = (date?: Date) => {
-    const base = date ?? new Date();
-    const baseDate = new Date(base);
-    baseDate.setHours(9, 0, 0, 0);
-    const { date: d, time: t } = toDateTimeFields(baseDate.toISOString());
+    const baseDate = new Date(date ?? Date.now());
+    if (!date) {
+      baseDate.setHours(9, 0, 0, 0);
+    }
+    const d = `${baseDate.getFullYear()}-${String(baseDate.getMonth() + 1).padStart(2, "0")}-${String(baseDate.getDate()).padStart(2, "0")}`;
+    const t = `${String(baseDate.getHours()).padStart(2, "0")}:${String(baseDate.getMinutes()).padStart(2, "0")}`;
+    const end = new Date(baseDate);
+    end.setMinutes(end.getMinutes() + 30);
+    const endT = `${String(end.getHours()).padStart(2, "0")}:${String(end.getMinutes()).padStart(2, "0")}`;
     setEditingId(null);
+    const firstService = serviceOptions[0];
     setInitialForm({
       date: d,
       startTime: t,
-      endTime: addMinutes(baseDate.toISOString(), 30),
+      endTime: endT,
       notes: "",
       clientId: 0,
       clientFirstName: "",
       clientLastName: "",
+      serviceIds: firstService?.value != null && Number(firstService.value) > 0 ? [Number(firstService.value)] : [],
     });
     setIsOpen(true);
   };
@@ -193,7 +225,12 @@ export const AppointmentPage = () => {
       clientId: target.clientId,
       clientFirstName: clientFirst,
       clientLastName: clientLast,
-      serviceId: target.serviceId,
+      serviceIds:
+        target.serviceIds && target.serviceIds.length > 0
+          ? target.serviceIds
+          : target.serviceId
+            ? [target.serviceId]
+            : [],
       date: baseDate,
       startTime,
       endTime,
@@ -242,13 +279,19 @@ export const AppointmentPage = () => {
         showAlert({ title: "Erro", message: "Já existe um agendamento nesse horário", type: "destructive" });
         return;
       }
+      const primary = data.serviceIds[0] ?? 0;
+      if (!primary) {
+        showAlert({ title: "Erro", message: "Selecione ao menos um serviço", type: "destructive" });
+        return;
+      }
       const payload = {
         companyId,
         professionalId: data.professionalId,
         clientId: data.clientId,
         clientFirstName: (data.clientFirstName ?? "").trim(),
         clientLastName: (data.clientLastName ?? "").trim(),
-        serviceId: data.serviceId,
+        serviceId: primary,
+        serviceIds: data.serviceIds,
         startAt,
         endAt,
         durationMinutes,
@@ -279,11 +322,12 @@ export const AppointmentPage = () => {
     const endTime = startAtIso ? addMinutes(startAtIso, 30) : "";
 
     setApprovalRequestId(request.id);
+    const aprvSid = request.service_id ?? 0;
     setApprovalInitialForm({
       date: baseDate,
       startTime: baseTime,
       endTime,
-      serviceId: request.service_id ?? 0,
+      serviceIds: aprvSid > 0 ? [aprvSid] : [],
       clientId: request.client_id ?? 0,
       notes: request.notes ?? "",
     });
@@ -309,10 +353,12 @@ export const AppointmentPage = () => {
       const endDate = toLocalDate(data.date, data.endTime);
       const durationMinutes = Math.max(1, Math.round((endDate.getTime() - startDate.getTime()) / 60000));
 
+      const primaryApprove = data.serviceIds[0] ?? 0;
       await AppointmentRequestService.approve(approvalRequestId, {
         professionalId: data.professionalId,
         clientId: data.clientId,
-        serviceId: data.serviceId,
+        serviceId: primaryApprove,
+        serviceIds: data.serviceIds,
         startAt,
         endAt,
         durationMinutes,
@@ -334,19 +380,31 @@ export const AppointmentPage = () => {
   return (
     <div className="h-full flex flex-col">
       <Card>
-        <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <CardHeader className="flex flex-col gap-3 px-4 pt-6 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle>{labels.appointments.plural}</CardTitle>
-            <CardDescription>Calendário em tela cheia com criação rápida</CardDescription>
+            <CardDescription className="hidden sm:block">
+              Visão semanal (segunda a sexta), grade por horário — clique no horário ou no bloco
+            </CardDescription>
+            <p className="mt-1 text-sm text-muted-foreground sm:hidden">
+              Grade semanal · escolha o dia e toque no horário
+            </p>
           </div>
 
         </CardHeader>
-        <CardContent className="min-h-0">
+        <CardContent className="min-h-0 px-3 pb-6 pt-0 sm:px-6 sm:pb-6">
           <div className="w-full md:max-h-[min(72vh,calc(100vh-13rem))] md:overflow-y-auto md:overscroll-contain md:pr-1">
             <AppointmentCalendar
-              currentMonth={currentMonth}
+              viewDate={calendarViewDate}
               appointments={calendarAppointments}
-              onMonthChange={setCurrentMonth}
+              onWeekChange={(deltaWeeks) => {
+                setCalendarViewDate((prev) => {
+                  const n = new Date(prev);
+                  n.setDate(n.getDate() + deltaWeeks * 7);
+                  return n;
+                });
+              }}
+              onNavigateToToday={() => setCalendarViewDate(new Date())}
               onSelectDate={handleNew}
               onSelectAppointment={handleEdit}
             />

@@ -1,12 +1,12 @@
 import { useEffect, useMemo, type ComponentType, type ReactNode } from "react";
 import { z } from "zod";
-import { useForm } from "react-hook-form";
+import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { CalendarClock, Clock, Scissors, StickyNote, UserCircle2 } from "lucide-react";
+import { CalendarClock, Clock, Plus, Scissors, StickyNote, Trash2, UserCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { AppointmentDTO } from "../../services/appointment-service";
 import type { SettingsDTO } from "@/feature/config/services/settings-service";
@@ -23,11 +23,7 @@ const appointmentSchema = z.object({
     .refine((v) => Number.isFinite(v), "Selecione um cliente"),
   clientFirstName: z.string().optional(),
   clientLastName: z.string().optional(),
-  serviceId: z.coerce
-    .number()
-    .refine((v) => Number.isFinite(v), "Selecione um serviço")
-    .int()
-    .min(1, "Selecione um serviço"),
+  serviceIds: z.array(z.coerce.number().int().min(1, "Selecione o serviço")).min(1, "Inclua ao menos um serviço"),
   date: z.string().min(1, "Informe a data"),
   startTime: z.string().min(1, "Informe a hora de início"),
   endTime: z.string().min(1, "Informe a hora de término"),
@@ -93,7 +89,7 @@ const defaultValues: AppointmentFormValues = {
   clientId: 0,
   clientFirstName: "",
   clientLastName: "",
-  serviceId: 0,
+  serviceIds: [],
   date: "",
   startTime: "",
   endTime: "",
@@ -141,6 +137,14 @@ function findOptionById<T extends { value: number | string }>(items: T[], id: un
   const n = toPositiveInt(id);
   if (n == null) return undefined;
   return items.find((item) => Number(item.value) === n || String(item.value) === String(id));
+}
+
+function totalDurationForServices(serviceIds: number[], serviceOptions: OptionItem[]): number {
+  return serviceIds.reduce((sum, id) => {
+    const s = findOptionById(serviceOptions, id);
+    const d = Number(s?.durationMinutes ?? 0);
+    return sum + (Number.isFinite(d) && d > 0 ? d : 0);
+  }, 0);
 }
 
 const selectFieldClass = cn(
@@ -205,14 +209,15 @@ export function AppointmentFormModal({
     defaultValues,
   });
 
-  const { reset } = form;
+  const { reset, control: formControl } = form;
+  const { fields, append, remove } = useFieldArray({ control: formControl, name: "serviceIds" });
 
   const initialSnapshot = useMemo(
     () =>
       JSON.stringify({
         p: initialValues?.professionalId,
         c: initialValues?.clientId,
-        s: initialValues?.serviceId,
+        ss: initialValues?.serviceIds,
         d: initialValues?.date,
         st: initialValues?.startTime,
         et: initialValues?.endTime,
@@ -225,31 +230,39 @@ export function AppointmentFormModal({
 
   useEffect(() => {
     if (!open) return;
+    const mergedServiceIds =
+      initialValues?.serviceIds && initialValues.serviceIds.length > 0
+        ? initialValues.serviceIds
+        : defaultValues.serviceIds;
     reset({
       ...defaultValues,
       ...initialValues,
       clientFirstName: initialValues?.clientFirstName ?? "",
       clientLastName: initialValues?.clientLastName ?? "",
+      serviceIds: mergedServiceIds,
       startTime: normalizeTimeValue(initialValues?.startTime ?? defaultValues.startTime),
       endTime: normalizeTimeValue(initialValues?.endTime ?? defaultValues.endTime),
     });
   }, [open, initialSnapshot, reset]);
 
-  const selectedServiceId = form.watch("serviceId");
+  const watchedServiceIds = form.watch("serviceIds");
   const selectedStartTime = form.watch("startTime");
   const watchedDate = form.watch("date");
   const watchedProfessionalId = form.watch("professionalId");
   const watchedClientId = form.watch("clientId");
 
+  const totalSlotDuration = useMemo(
+    () => totalDurationForServices((watchedServiceIds ?? []) as number[], services),
+    [watchedServiceIds, services]
+  );
+
   const freeSlots = useMemo(() => {
-    const service = findOptionById(services, selectedServiceId);
-    const duration = Number(service?.durationMinutes ?? 0);
     const professionalNumericId = toPositiveInt(watchedProfessionalId);
     const dateKey = String(watchedDate ?? "").trim();
-    if (!dateKey || professionalNumericId == null || !duration) return [];
+    if (!dateKey || professionalNumericId == null || !totalSlotDuration) return [];
     return computeFreeSlotStarts({
       dateStr: dateKey,
-      durationMinutes: duration,
+      durationMinutes: totalSlotDuration,
       professionalId: professionalNumericId,
       appointments: existingAppointments ?? [],
       settings: scheduleSettings ?? null,
@@ -258,7 +271,7 @@ export function AppointmentFormModal({
   }, [
     watchedDate,
     watchedProfessionalId,
-    selectedServiceId,
+    totalSlotDuration,
     services,
     existingAppointments,
     scheduleSettings,
@@ -267,53 +280,58 @@ export function AppointmentFormModal({
 
   const scheduleHint = useMemo(() => {
     const profId = toPositiveInt(watchedProfessionalId);
-    const svcId = toPositiveInt(selectedServiceId);
     const dateKey = String(watchedDate ?? "").trim();
+    const hasServices = (watchedServiceIds ?? []).length > 0;
     if (!profId) return "Selecione um profissional para ver os horários livres.";
-    if (!svcId) return "Selecione um serviço para ver os horários livres.";
+    if (!hasServices) return "Inclua ao menos um serviço para continuar.";
     if (!dateKey) return "Selecione uma data para ver os horários livres.";
-    const service = findOptionById(services, selectedServiceId);
-    const duration = Number(service?.durationMinutes ?? 0);
-    if (!duration) return "Serviço sem duração cadastrada; não é possível sugerir horários.";
+    if (!totalSlotDuration) {
+      return "Não há duração cadastrada para os serviços selecionados; informe o horário de término manualmente. A grade de sugestão de horários usa a soma das durações.";
+    }
     if (!isDateInConfiguredWorkingDays(dateKey, scheduleSettings ?? null)) {
       return "Este dia não está no expediente configurado (Configurações → agenda pública).";
     }
     if (freeSlots.length === 0) {
-      return "Nenhum horário livre neste dia para a duração do serviço e este profissional.";
+      return "Nenhum horário livre neste dia para a duração considerada (soma dos serviços) e este profissional.";
     }
     return null;
   }, [
     watchedDate,
     watchedProfessionalId,
-    selectedServiceId,
-    services,
+    watchedServiceIds,
+    totalSlotDuration,
     scheduleSettings,
     freeSlots.length,
   ]);
 
+  const applyEndFromDurations = () => {
+    const startTime = normalizeTimeValue(form.getValues("startTime"));
+    const ids = form.getValues("serviceIds") ?? [];
+    if (!startTime) return;
+    const total = totalDurationForServices(ids, services);
+    if (!total) return;
+    form.setValue("endTime", addMinutesToTime(startTime, total), { shouldValidate: true, shouldDirty: true });
+  };
+
   useEffect(() => {
-    if (!selectedServiceId || !selectedStartTime) {
+    if (watchedServiceIds.length !== 1 || !selectedStartTime) {
       return;
     }
-
-    const selectedService = findOptionById(services, selectedServiceId);
+    const selectedService = findOptionById(services, watchedServiceIds[0]);
     const duration = Number(selectedService?.durationMinutes ?? 0);
     if (!Number.isFinite(duration) || duration <= 0) {
       return;
     }
-
     const normalizedStartTime = normalizeTimeValue(selectedStartTime);
     const computedEndTime = addMinutesToTime(normalizedStartTime, duration);
     const currentEndTime = normalizeTimeValue(form.getValues("endTime"));
-
     if (normalizedStartTime !== selectedStartTime) {
       form.setValue("startTime", normalizedStartTime, { shouldValidate: true, shouldDirty: true });
     }
-
     if (currentEndTime !== computedEndTime) {
       form.setValue("endTime", computedEndTime, { shouldValidate: true, shouldDirty: true });
     }
-  }, [form, selectedServiceId, selectedStartTime, services]);
+  }, [form, watchedServiceIds, selectedStartTime, services]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -449,48 +467,104 @@ export function AppointmentFormModal({
 
             <div className="min-w-0 space-y-5 lg:border-l lg:border-slate-200/80 lg:pl-8">
             <FormSection title="Serviço e horário" icon={Scissors}>
-            <FormField
-              control={form.control}
-              name="serviceId"
-              render={({ field }) => (
-                <FormItem className="space-y-2">
-                  <FormLabel className="text-slate-700">Serviço</FormLabel>
-                  <FormControl>
-                    <select
-                      className={selectFieldClass}
-                      value={toPositiveInt(field.value) == null ? "" : String(field.value)}
-                      onChange={(e) => {
-                        const selectedId = Number(e.target.value);
-                        field.onChange(selectedId);
-
-                        const selectedService = findOptionById(services, selectedId);
-                        const duration = Number(selectedService?.durationMinutes ?? 0);
-                        const startTime = normalizeTimeValue(form.getValues("startTime"));
-
-                        if (!startTime || !Number.isFinite(duration) || duration <= 0) {
-                          return;
-                        }
-
-                        const computedEndTime = addMinutesToTime(startTime, duration);
-                        form.setValue("endTime", computedEndTime, { shouldValidate: true, shouldDirty: true });
-                      }}
-                      disabled={services.length === 0}
+            <div className="space-y-3">
+              {fields.map((row, index) => (
+                <div key={row.id} className="flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-2">
+                  <FormField
+                    control={form.control}
+                    name={`serviceIds.${index}`}
+                    render={({ field }) => (
+                      <FormItem className="min-w-0 flex-1 space-y-2">
+                        <FormLabel className="text-slate-700">
+                          {index === 0 ? "Serviços" : " "}
+                        </FormLabel>
+                        <FormControl>
+                          <select
+                            className={selectFieldClass}
+                            value={toPositiveInt(field.value) == null ? "" : String(field.value)}
+                            onChange={(e) => {
+                              const selectedId = Number(e.target.value);
+                              const list = (form.getValues("serviceIds") as number[] | undefined) ?? [];
+                              const next = list.map((v, i) => (i === index ? selectedId : v));
+                              field.onChange(selectedId);
+                              if (next.length === 1 && toPositiveInt(next[0]) != null) {
+                                const selectedService = findOptionById(services, next[0]);
+                                const duration = Number(selectedService?.durationMinutes ?? 0);
+                                const startTime = normalizeTimeValue(form.getValues("startTime"));
+                                if (startTime && Number.isFinite(duration) && duration > 0) {
+                                  form.setValue("endTime", addMinutesToTime(startTime, duration), {
+                                    shouldValidate: true,
+                                    shouldDirty: true,
+                                  });
+                                }
+                              }
+                            }}
+                            disabled={services.length === 0}
+                          >
+                            <option value="" disabled>
+                              Selecione um serviço
+                            </option>
+                            {services.map((s) => (
+                              <option key={s.value} value={String(s.value)}>
+                                {s.label}
+                                {s.durationMinutes != null && s.durationMinutes > 0
+                                  ? ` — ${s.durationMinutes} min`
+                                  : " — duração opcional"}
+                              </option>
+                            ))}
+                          </select>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  {fields.length > 1 ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-10 shrink-0 rounded-xl"
+                      onClick={() => remove(index)}
+                      aria-label="Remover serviço"
                     >
-                      <option value="" disabled>Selecione um serviço</option>
-                      {services.map((s) => (
-                        <option key={s.value} value={String(s.value)}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                  </FormControl>
-                  {services.length === 0 ? (
-                    <div className="text-xs text-amber-700/90">Nenhum serviço disponível</div>
-                  ) : null}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  ) : (
+                    <div className="h-10 w-10 shrink-0 sm:mb-0" />
+                  )}
+                </div>
+              ))}
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-9 w-full justify-center gap-2 rounded-xl sm:w-auto"
+                  disabled={services.length === 0}
+                  onClick={() => {
+                    const first = services[0] ? Number(services[0].value) : 1;
+                    append(first);
+                  }}
+                >
+                  <Plus className="h-4 w-4" />
+                  {fields.length === 0 ? "Adicionar serviço" : "Adicionar outro serviço"}
+                </Button>
+                {totalSlotDuration > 0 ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9 w-full justify-center rounded-xl sm:w-auto"
+                    onClick={() => applyEndFromDurations()}
+                  >
+                    Preencher fim (soma {totalSlotDuration} min)
+                  </Button>
+                ) : null}
+              </div>
+
+              {services.length === 0 ? (
+                <div className="text-xs text-amber-700/90">Nenhum serviço disponível</div>
+              ) : null}
+            </div>
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <FormField
@@ -531,13 +605,7 @@ export function AppointmentFormModal({
                       Fim
                     </FormLabel>
                     <FormControl>
-                      <Input
-                        type="time"
-                        {...field}
-                        className={cn(inputFieldClass, "bg-slate-50/90")}
-                        readOnly={Boolean(form.watch("serviceId"))}
-                        disabled={Boolean(form.watch("serviceId"))}
-                      />
+                      <Input type="time" {...field} className={inputFieldClass} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -564,7 +632,7 @@ export function AppointmentFormModal({
                   <span className="text-xs tabular-nums text-slate-500">{freeSlots.length} horários</span>
                 </div>
                 <p className="mb-3 text-xs leading-relaxed text-slate-500">
-                  Toque em um horário para preencher início e fim automaticamente.
+                  Toque em um horário: preenche o início; se a soma das durações dos serviços for conhecida, ajusta também o fim.
                 </p>
                 <div className="custom-scrollbar max-h-[10.5rem] overflow-y-auto rounded-xl border border-slate-200/70 bg-white p-2.5 sm:max-h-44">
                   <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10">
@@ -581,6 +649,14 @@ export function AppointmentFormModal({
                         )}
                         onClick={() => {
                           form.setValue("startTime", slot, { shouldValidate: true, shouldDirty: true });
+                          const ids = (form.getValues("serviceIds") as number[] | undefined) ?? [];
+                          const total = totalDurationForServices(ids, services);
+                          if (total > 0) {
+                            form.setValue("endTime", addMinutesToTime(slot, total), {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+                          }
                         }}
                       >
                         {slot}

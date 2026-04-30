@@ -20,6 +20,7 @@ export interface ApproveAppointmentRequestPayload {
   professionalId: number;
   clientId: number;
   serviceId: number;
+  serviceIds?: number[];
   startAt: string;
   endAt: string;
   durationMinutes: number;
