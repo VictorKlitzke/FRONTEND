@@ -147,6 +147,13 @@ function totalDurationForServices(serviceIds: number[], serviceOptions: OptionIt
   }, 0);
 }
 
+function normalizeServiceIds(values: unknown[] | undefined): number[] {
+  if (!values) return [];
+  return values
+    .map((value) => toPositiveInt(value))
+    .filter((value): value is number => value != null);
+}
+
 const selectFieldClass = cn(
   "h-10 w-full rounded-xl border border-slate-200/90 bg-white px-3 text-sm text-slate-900",
   "shadow-sm transition-[box-shadow,border-color] cursor-pointer",
@@ -252,7 +259,7 @@ export function AppointmentFormModal({
   const watchedClientId = form.watch("clientId");
 
   const totalSlotDuration = useMemo(
-    () => totalDurationForServices((watchedServiceIds ?? []) as number[], services),
+    () => totalDurationForServices(normalizeServiceIds(watchedServiceIds), services),
     [watchedServiceIds, services]
   );
 
@@ -306,7 +313,7 @@ export function AppointmentFormModal({
 
   const applyEndFromDurations = () => {
     const startTime = normalizeTimeValue(form.getValues("startTime"));
-    const ids = form.getValues("serviceIds") ?? [];
+    const ids = normalizeServiceIds(form.getValues("serviceIds"));
     if (!startTime) return;
     const total = totalDurationForServices(ids, services);
     if (!total) return;
@@ -649,7 +656,7 @@ export function AppointmentFormModal({
                         )}
                         onClick={() => {
                           form.setValue("startTime", slot, { shouldValidate: true, shouldDirty: true });
-                          const ids = (form.getValues("serviceIds") as number[] | undefined) ?? [];
+                          const ids = normalizeServiceIds(form.getValues("serviceIds"));
                           const total = totalDurationForServices(ids, services);
                           if (total > 0) {
                             form.setValue("endTime", addMinutesToTime(slot, total), {

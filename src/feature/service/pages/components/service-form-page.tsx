@@ -9,13 +9,10 @@ const serviceSchema = z.object({
 	name: z.string().min(2, "Nome inválido"),
 	description: z.string().optional().or(z.literal("")),
 	price: z.coerce.number().min(0),
-	durationMinutes: z.preprocess(
-		(v) => (v === "" || v === null || v === undefined ? undefined : v),
-		z.coerce.number().int().min(0).optional()
-	),
+	durationMinutes: z.number().int().min(0).optional(),
 });
 
-export type ServiceForm = z.infer<typeof serviceSchema>;
+export type ServiceForm = z.output<typeof serviceSchema>;
 type ServiceFormInput = z.input<typeof serviceSchema>;
 
 interface ServiceFormPageProps {
@@ -78,7 +75,10 @@ export function ServiceFormPage({ initialValues, onSubmit, loading, onCancel }: 
 									step={0.01}
 									placeholder="Preço"
 									value={typeof field.value === "number" || typeof field.value === "string" ? field.value : ""}
-									onChange={(event) => field.onChange(event.target.value)}
+									onChange={(event) => {
+										const raw = event.target.value;
+										field.onChange(raw === "" ? undefined : Number(raw));
+									}}
 								/>
 							</FormControl>
 							<FormMessage />
