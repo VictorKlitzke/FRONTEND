@@ -4,7 +4,7 @@ import { startOfMonth, endOfMonth, startOfWeek, addDays, isSameMonth, isSameDay,
 
 import { Input } from "@/components/ui/input";
 import { useAlert } from "@/hooks/use-alert";
-import { isPublicScheduleConfigured } from "@/feature/config/utils/public-schedule-setup";
+import { isPublicBookingScheduleRunnable } from "@/feature/config/utils/public-schedule-setup";
 
 import { AppointmentRequestService } from "../services/appointment-request-service";
 import { PublicAvailabilityService, type PublicCompanyInfo, type PublicCompanyItem } from "../services/public-availability-service";
@@ -50,10 +50,10 @@ export const PublicAppointmentRequestPage = () => {
     (s) => String(s.id) === String(form.serviceId)
   );
 
-  const publicScheduleConfigured = isPublicScheduleConfigured(companyInfo?.settings);
+  const publicBookingReady = isPublicBookingScheduleRunnable(companyInfo?.settings);
 
   const isValid =
-    Boolean(publicScheduleConfigured && form.companyId && form.clientName && form.clientPhone && form.preferredDate && form.preferredTime);
+    Boolean(publicBookingReady && form.companyId && form.clientName && form.clientPhone && form.preferredDate && form.preferredTime);
 
   const onChange = (key: keyof typeof form, value: string) => {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -355,13 +355,14 @@ export const PublicAppointmentRequestPage = () => {
                   </div>
                 )}
 
-                {companyInfo && !publicScheduleConfigured && (
+                {companyInfo && !publicBookingReady && (
                   <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                    Esta empresa ainda nao configurou os dias e horarios de atendimento. Tente novamente em alguns minutos.
+                    Não há dias e horários válidos para agendamento online (revise a agenda pública no painel ou tente
+                    outro horário).
                   </div>
                 )}
 
-                {companyInfo && publicScheduleConfigured && (
+                {companyInfo && publicBookingReady && (
                   <CardService
                     services={companyInfo.services ?? []}
                     selectedId={form.serviceId}
