@@ -1,5 +1,5 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +13,8 @@ const SLOT_MINUTES = 15;
 
 /** Desktop: altura por faixa de 15 min */
 const PX_PER_SLOT_DESKTOP = 34;
-/** Mobile: um pouco maior para leitura confortável em coluna única */
-const PX_PER_SLOT_MOBILE = 38;
+/** Mobile: coluna única — altura equilibrada entre legibilidade e rolagem */
+const PX_PER_SLOT_MOBILE = 32;
 
 const PALETTE = [
   "bg-emerald-600 border-emerald-700 text-white shadow-sm",
@@ -169,7 +169,7 @@ function AppointmentBlocks({
                     paletteClass(a.colorKey ?? a.id)
                   )
                 : cn(
-                    "touch-manipulation gap-0.5 rounded-md border px-2 py-1.5 shadow-sm md:active:scale-100",
+                    "touch-manipulation gap-0.5 rounded-md border px-2 py-1.5 shadow-sm lg:active:scale-100",
                     paletteClass(a.colorKey ?? a.id)
                   )
             )}
@@ -248,10 +248,18 @@ export function AppointmentCalendar({
   }, [weekDays]);
 
   const [mobileDayIdx, setMobileDayIdx] = useState(0);
+  const dayStripRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMobileDayIdx(todayInWeekIndex >= 0 ? todayInWeekIndex : 0);
   }, [weekStart.getTime(), todayInWeekIndex]);
+
+  useEffect(() => {
+    const strip = dayStripRef.current;
+    if (!strip) return;
+    const btn = strip.querySelector<HTMLElement>(`[data-mobile-day="${mobileDayIdx}"]`);
+    btn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }, [mobileDayIdx, weekStart]);
 
   const weekRangeLabel = useMemo(() => {
     const first = weekDays[0];
@@ -374,18 +382,18 @@ export function AppointmentCalendar({
       {/* Toolbar — mobile: compact & thumb-friendly */}
       <div className="mb-3 flex flex-col gap-3 sm:mb-6">
         <div className="flex flex-col gap-1">
-          <div className="text-lg font-semibold leading-tight tracking-tight text-slate-900 md:text-2xl">
-            <span className="md:hidden">{weekRangeShort}</span>
-            <span className="hidden capitalize md:inline">{weekRangeLabel}</span>
+          <div className="text-lg font-semibold leading-tight tracking-tight text-slate-900 lg:text-2xl">
+            <span className="lg:hidden">{weekRangeShort}</span>
+            <span className="hidden capitalize lg:inline">{weekRangeLabel}</span>
           </div>
-          <p className="text-xs text-slate-500 md:hidden">Toque no dia abaixo e na grade para agendar</p>
+          <p className="text-xs text-slate-500 lg:hidden">Deslize os dias · toque na grade para agendar</p>
         </div>
 
-        <div className="flex flex-wrap items-stretch gap-2 md:justify-end">
+        <div className="flex flex-wrap items-stretch gap-2 lg:justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none md:min-h-9"
+            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none lg:min-h-9"
             onClick={() => onWeekChange(-1)}
           >
             <ChevronLeft className="mr-1 h-4 w-4 shrink-0" />
@@ -395,7 +403,7 @@ export function AppointmentCalendar({
           <Button
             variant="outline"
             size="sm"
-            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none md:min-h-9"
+            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none lg:min-h-9"
             onClick={() => onWeekChange(1)}
           >
             <span className="hidden sm:inline">Próxima semana</span>
@@ -405,7 +413,7 @@ export function AppointmentCalendar({
           <Button
             variant="secondary"
             size="sm"
-            className="min-h-11 w-full touch-manipulation rounded-xl sm:w-auto md:min-h-9"
+            className="min-h-11 w-full touch-manipulation rounded-xl sm:w-auto lg:min-h-9"
             onClick={() => onNavigateToToday?.()}
           >
             Hoje
@@ -413,16 +421,20 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      {/* ——— Mobile: dia em faixa + grade largura total ——— */}
-      <div className="md:hidden">
-        <div className="scrollbar-none -mx-1 flex gap-2 overflow-x-auto pb-2 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      {/* ——— Mobile / tablet: um dia por vez (evita 7 colunas estreitas) ——— */}
+      <div className="lg:hidden">
+        <div
+          ref={dayStripRef}
+          className="scrollbar-none -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-3 scroll-pr-3 pb-2 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
           {weekDays.map((d, i) => (
             <button
               key={toLocalDateKey(d)}
               type="button"
+              data-mobile-day={i}
               onClick={() => setMobileDayIdx(i)}
               className={cn(
-                "flex min-h-[52px] min-w-[4.75rem] shrink-0 touch-manipulation flex-col items-center justify-center rounded-2xl border-2 px-3 py-2 text-center transition active:scale-[0.97]",
+                "snap-start flex min-h-[56px] min-w-20 shrink-0 touch-manipulation flex-col items-center justify-center rounded-2xl border-2 px-3 py-2 text-center transition active:scale-[0.97]",
                 mobileDayIdx === i
                   ? "border-violet-500 bg-violet-50 shadow-md ring-1 ring-violet-200"
                   : "border-slate-200/90 bg-white shadow-sm"
@@ -449,9 +461,9 @@ export function AppointmentCalendar({
 
         <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
           <div
-            className="grid gap-px bg-slate-200"
+            className="grid max-h-[min(58vh,520px)] gap-px overflow-y-auto overscroll-contain bg-slate-200 touch-pan-y [scrollbar-gutter:stable]"
             style={{
-              gridTemplateColumns: `52px minmax(0, 1fr)`,
+              gridTemplateColumns: `56px minmax(0, 1fr)`,
             }}
           >
             <div className="relative bg-slate-50/90">
@@ -460,7 +472,7 @@ export function AppointmentCalendar({
                   <div
                     key={i}
                     className={cn(
-                      "flex shrink-0 justify-end pr-1.5 text-[10px] font-medium leading-none text-slate-500",
+                      "flex shrink-0 justify-end pr-1.5 text-[11px] font-medium leading-none text-slate-600",
                       i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
                     )}
                     style={{ height: PX_PER_SLOT_MOBILE }}
@@ -472,7 +484,7 @@ export function AppointmentCalendar({
             </div>
 
             <div
-              className="relative touch-manipulation bg-white"
+              className="relative min-h-0 touch-manipulation bg-white"
               style={{ minHeight: columnHeightMobile }}
               onClick={(e) => mobileDay && handleColumnBackgroundClick(e, mobileDay)}
               role="presentation"
@@ -499,8 +511,8 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      {/* ——— Desktop ——— */}
-      <div className="hidden min-w-0 overflow-x-auto pb-1 md:block">
+      {/* ——— Desktop (telas largas): semana completa ——— */}
+      <div className="hidden min-w-0 overflow-x-auto pb-1 lg:block">
         <div className="min-w-[1000px]">
           <div
             className="grid gap-px border-b border-slate-200 bg-slate-200"
@@ -592,7 +604,10 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      <p className="mt-3 hidden text-xs text-slate-500 sm:block">
+      <p className="mt-2 px-0.5 text-center text-[11px] leading-snug text-slate-500 lg:hidden">
+        Role a grade para ver o dia inteiro. Toque num horário vazio para novo agendamento.
+      </p>
+      <p className="mt-3 hidden text-xs text-slate-500 lg:block">
         Clique em um horário vazio para criar um agendamento. Clique em um bloco para editar. Grade {DAY_START_HOUR}h–0h
         (meia-noite), intervalos de {SLOT_MINUTES} min.
       </p>

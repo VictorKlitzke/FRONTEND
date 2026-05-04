@@ -5,6 +5,14 @@ export type PublicScheduleSettings = {
   public_working_days?: string | null;
 };
 
+/** Valores efetivos após fallbacks (sempre strings/número definidos). */
+export type EffectivePublicSchedule = {
+  public_start_time: string;
+  public_end_time: string;
+  public_slot_minutes: number;
+  public_working_days: string;
+};
+
 const isValidTime = (value?: string | null): boolean => {
   if (!value) return false;
   const t = value.trim();
@@ -22,7 +30,7 @@ const toMinutes = (value: string): number => {
 /** Mesmos fallbacks que o PHP em `AppointmentRequestPublicAvailabilityAction` (null → padrão). */
 export const getEffectivePublicSchedule = (
   settings?: PublicScheduleSettings | null
-): Required<Pick<PublicScheduleSettings, "public_start_time" | "public_end_time" | "public_slot_minutes" | "public_working_days">> => {
+): EffectivePublicSchedule => {
   const s = settings ?? {};
   return {
     public_start_time: s.public_start_time?.trim() || "09:00:00",
