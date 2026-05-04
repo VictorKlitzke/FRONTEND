@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-/** Segunda a sexta (como agenda clínica típica); domingo = 0 */
-const WEEKDAY_COLUMNS = 5;
+/** Semana completa: segunda a domingo (início da semana = segunda) */
+const WEEKDAY_COLUMNS = 7;
 
 const DAY_START_HOUR = 7;
 /** Fim do dia na grade (24 = meia-noite); minutos usam 24 * 60 */
@@ -46,7 +46,7 @@ export interface CalendarAppointment {
 }
 
 interface AppointmentCalendarProps {
-  /** Qualquer data dentro da semana visível (normalizamos para semana seg–sex) */
+  /** Qualquer data dentro da semana visível (normalizamos para semana começando na segunda) */
   viewDate: Date;
   appointments: CalendarAppointment[];
   onWeekChange: (deltaWeeks: number) => void;
@@ -501,7 +501,7 @@ export function AppointmentCalendar({
 
       {/* ——— Desktop ——— */}
       <div className="hidden min-w-0 overflow-x-auto pb-1 md:block">
-        <div className="min-w-[720px]">
+        <div className="min-w-[1000px]">
           <div
             className="grid gap-px border-b border-slate-200 bg-slate-200"
             style={{

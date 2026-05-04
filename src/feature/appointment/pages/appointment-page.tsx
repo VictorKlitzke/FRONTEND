@@ -374,7 +374,7 @@ export const AppointmentPage = () => {
           <div>
             <CardTitle>{labels.appointments.plural}</CardTitle>
             <CardDescription className="hidden sm:block">
-              Visão semanal (segunda a sexta), grade por horário — clique no horário ou no bloco
+              Visão semanal (segunda a domingo), grade por horário — clique no horário ou no bloco
             </CardDescription>
             <p className="mt-1 text-sm text-muted-foreground sm:hidden">
               Grade semanal · escolha o dia e toque no horário
