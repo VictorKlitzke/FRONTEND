@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useAppointmentStore } from "../stores/appointment-store";
@@ -23,6 +24,8 @@ function splitClientDisplayName(full: string): { first: string; last: string } {
 }
 
 export const AppointmentPage = () => {
+  const navigate = useNavigate();
+  const agendaFullscreenRef = useRef<HTMLDivElement>(null);
   const { appointments, loading, fetchByCompany, createAppointment, updateAppointment, deleteAppointment } = useAppointmentStore();
   const { showAlert } = useAlert();
   const { clients, fetchAll: fetchClients } = useClientStore();
@@ -123,6 +126,11 @@ export const AppointmentPage = () => {
         if (!subtitle && a.clientId) {
           subtitle = clients.find((c) => c.id === a.clientId)?.name ?? "";
         }
+        const professionalName = a.professionalId
+          ? professionals.find((p) => p.id === a.professionalId)?.name
+          : undefined;
+        const subtitleParts = [professionalName, subtitle].filter((x) => Boolean(x && String(x).trim()));
+        const subtitleLine = subtitleParts.length > 0 ? subtitleParts.join(" · ") : undefined;
 
         return {
           id: a.id,
@@ -130,11 +138,11 @@ export const AppointmentPage = () => {
           endAt: a.endAt,
           durationMinutes: a.durationMinutes,
           title,
-          subtitle: subtitle || undefined,
+          subtitle: subtitleLine,
           colorKey: a.professionalId ?? a.id ?? 0,
         };
       }),
-    [appointments, services, clients]
+    [appointments, services, clients, professionals]
   );
 
   const addMinutes = (iso: string, minutes: number) => {
@@ -368,37 +376,46 @@ export const AppointmentPage = () => {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <Card>
-        <CardHeader className="flex flex-col gap-3 px-4 pt-6 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <CardTitle>{labels.appointments.plural}</CardTitle>
-            <CardDescription className="hidden lg:block">
-              Semana seg–dom · acompanhe e crie agendamentos na grade
-            </CardDescription>
-            <p className="mt-1 text-sm text-muted-foreground lg:hidden">Grade semanal · use os botões e deslize os dias</p>
-          </div>
-
-        </CardHeader>
-        <CardContent className="min-h-0 px-3 pb-6 pt-0 sm:px-6 sm:pb-6">
-          <div className="w-full min-h-0">
-            <AppointmentCalendar
-              viewDate={calendarViewDate}
-              appointments={calendarAppointments}
-              onWeekChange={(deltaWeeks) => {
-                setCalendarViewDate((prev) => {
-                  const n = new Date(prev);
-                  n.setDate(n.getDate() + deltaWeeks * 7);
-                  return n;
-                });
-              }}
-              onNavigateToToday={() => setCalendarViewDate(new Date())}
-              onSelectDate={handleNew}
-              onSelectAppointment={handleEdit}
-            />
-          </div>
-        </CardContent>
-      </Card>
+    <div className="flex h-full min-h-0 flex-col">
+      <div
+        ref={agendaFullscreenRef}
+        className="flex min-h-0 flex-1 flex-col rounded-xl [&:fullscreen]:fixed [&:fullscreen]:inset-0 [&:fullscreen]:z-50 [&:fullscreen]:overflow-hidden [&:fullscreen]:rounded-none [&:fullscreen]:bg-background [&:fullscreen]:p-3 sm:[&:fullscreen]:p-5"
+      >
+        <Card className="flex min-h-0 flex-1 flex-col overflow-hidden shadow-sm [&:fullscreen]:border-0 [&:fullscreen]:shadow-none">
+          <CardHeader className="flex flex-col gap-3 px-4 pt-6 sm:px-6 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>{labels.appointments.plural}</CardTitle>
+              <CardDescription className="hidden lg:block">
+                Semana seg–dom · acompanhe e crie agendamentos na grade
+              </CardDescription>
+              <p className="mt-1 text-sm text-muted-foreground lg:hidden">
+                Grade semanal · use os botões e deslize os dias
+              </p>
+            </div>
+          </CardHeader>
+          <CardContent className="flex min-h-0 flex-1 flex-col px-3 pb-6 pt-0 sm:px-6 sm:pb-6">
+            <div className="flex min-h-0 w-full flex-1 flex-col">
+              <AppointmentCalendar
+                viewDate={calendarViewDate}
+                appointments={calendarAppointments}
+                fullscreenTargetRef={agendaFullscreenRef}
+                onWeekChange={(deltaWeeks) => {
+                  setCalendarViewDate((prev) => {
+                    const n = new Date(prev);
+                    n.setDate(n.getDate() + deltaWeeks * 7);
+                    return n;
+                  });
+                }}
+                onNavigateToToday={() => setCalendarViewDate(new Date())}
+                onSelectDate={handleNew}
+                onSelectAppointment={handleEdit}
+                onNewAppointment={() => handleNew()}
+                onConfigure={() => navigate("/config?tab=agenda")}
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="mt-6">
         <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

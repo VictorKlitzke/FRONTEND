@@ -1,30 +1,34 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight, Plus, Search, Settings } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 /** Semana completa: segunda a domingo (início da semana = segunda) */
 const WEEKDAY_COLUMNS = 7;
 
-const DAY_START_HOUR = 7;
+/** Início da grade alinhado a agendas clínicas (ex.: 09:00 no print) */
+const DAY_START_HOUR = 9;
 /** Fim do dia na grade (24 = meia-noite); minutos usam 24 * 60 */
 const DAY_END_HOUR = 24;
 const SLOT_MINUTES = 15;
 
 /** Desktop: altura por faixa de 15 min (mais compacto = menos rolagem na semana) */
-const PX_PER_SLOT_DESKTOP = 30;
+const PX_PER_SLOT_DESKTOP = 28;
 /** Mobile: coluna única — altura equilibrada entre legibilidade e rolagem */
-const PX_PER_SLOT_MOBILE = 32;
+const PX_PER_SLOT_MOBILE = 30;
 
+/** Cores suaves estilo agenda médica (texto escuro para leitura) */
 const PALETTE = [
-  "bg-emerald-600 border-emerald-700 text-white shadow-sm",
-  "bg-rose-500 border-rose-600 text-white shadow-sm",
-  "bg-sky-500 border-sky-600 text-white shadow-sm",
-  "bg-violet-500 border-violet-600 text-white shadow-sm",
-  "bg-amber-500 border-amber-600 text-white shadow-sm",
-  "bg-cyan-600 border-cyan-700 text-white shadow-sm",
-  "bg-fuchsia-500 border-fuchsia-600 text-white shadow-sm",
-  "bg-teal-600 border-teal-700 text-white shadow-sm",
+  "bg-emerald-100 border-emerald-300/80 text-slate-900 shadow-sm",
+  "bg-rose-100 border-rose-300/80 text-slate-900 shadow-sm",
+  "bg-sky-100 border-sky-300/80 text-slate-900 shadow-sm",
+  "bg-indigo-100 border-indigo-300/80 text-slate-900 shadow-sm",
+  "bg-amber-100 border-amber-300/80 text-slate-900 shadow-sm",
+  "bg-violet-100 border-violet-300/80 text-slate-900 shadow-sm",
+  "bg-orange-100 border-orange-300/80 text-slate-900 shadow-sm",
+  "bg-teal-100 border-teal-300/80 text-slate-900 shadow-sm",
 ];
 
 function paletteClass(key: string | number | undefined): string {
@@ -54,6 +58,12 @@ interface AppointmentCalendarProps {
   onNavigateToToday?: () => void;
   onSelectDate: (date: Date) => void;
   onSelectAppointment?: (appointmentId?: number) => void;
+  /** Abre fluxo de novo agendamento (sem slot) */
+  onNewAppointment?: () => void;
+  /** Ex.: navegar para /config */
+  onConfigure?: () => void;
+  /** Elemento que recebe requestFullscreen (card da agenda) */
+  fullscreenTargetRef?: RefObject<HTMLElement | null>;
 }
 
 function startOfWeekMonday(d: Date): Date {
@@ -188,25 +198,20 @@ function AppointmentBlocks({
           >
             <div
               className={cn(
-                "font-bold uppercase leading-snug line-clamp-2",
+                "line-clamp-2 font-semibold leading-snug",
                 isMobile ? "text-[11px]" : "text-[10px]"
               )}
             >
-              {a.title}
-            </div>
-            <div
-              className={cn(
-                "font-semibold tabular-nums opacity-95",
-                isMobile ? "text-[11px]" : "text-[10px]"
-              )}
-            >
-              {formatHm(start)} – {formatHm(end)}
+              {a.title}{" "}
+              <span className="whitespace-nowrap font-bold tabular-nums">
+                {formatHm(start)} – {formatHm(end)}
+              </span>
             </div>
             {a.subtitle?.trim() ? (
               <div
                 className={cn(
-                  "line-clamp-3 font-medium leading-snug opacity-95",
-                  isMobile ? "text-[11px]" : "text-[10px]"
+                  "line-clamp-2 font-medium leading-snug opacity-90",
+                  isMobile ? "text-[10px]" : "text-[9px]"
                 )}
               >
                 {a.subtitle}
@@ -219,6 +224,25 @@ function AppointmentBlocks({
   );
 }
 
+function CurrentTimeLine({ columnHeightPx }: { columnHeightPx: number }) {
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const tick = () => setNow(new Date());
+    const id = window.setInterval(tick, 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const mins = minutesSinceMidnight(now);
+  if (mins < DAY_START_MIN || mins >= DAY_END_MIN) return null;
+  const topPx = ((mins - DAY_START_MIN) / RANGE_MIN) * columnHeightPx;
+  return (
+    <div
+      className="pointer-events-none absolute right-0 left-0 z-30 border-t-[3px] border-red-500 shadow-[0_0_0_1px_rgba(255,255,255,0.6)]"
+      style={{ top: topPx }}
+      aria-hidden
+    />
+  );
+}
+
 export function AppointmentCalendar({
   viewDate,
   appointments,
@@ -226,7 +250,33 @@ export function AppointmentCalendar({
   onNavigateToToday,
   onSelectDate,
   onSelectAppointment,
+  onNewAppointment,
+  onConfigure,
+  fullscreenTargetRef,
 }: AppointmentCalendarProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isFullscreen, setIsFullscreen] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setIsFullscreen(Boolean(document.fullscreenElement));
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+
+  const toggleFullscreen = useCallback(async () => {
+    const el = fullscreenTargetRef?.current;
+    if (!el) return;
+    try {
+      if (document.fullscreenElement) {
+        await document.exitFullscreen();
+      } else {
+        await el.requestFullscreen();
+      }
+    } catch {
+      /* ignore */
+    }
+  }, [fullscreenTargetRef]);
+
   const weekStart = useMemo(() => startOfWeekMonday(viewDate), [viewDate]);
 
   const weekDays = useMemo(() => {
@@ -279,26 +329,28 @@ export function AppointmentCalendar({
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
     for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
+      const h = Math.floor(m / 60);
       const mm = m % 60;
-      const isLastSlot = m + SLOT_MINUTES >= DAY_END_MIN;
-      if (isLastSlot && DAY_END_MIN === 24 * 60) {
-        labels.push("00:00");
-      } else if (mm === 0) {
-        const h = Math.floor(m / 60);
-        labels.push(`${String(h).padStart(2, "0")}:00`);
-      } else {
-        labels.push("");
-      }
+      labels.push(`${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
     }
     return labels;
   }, []);
+
+  const q = searchQuery.trim().toLowerCase();
+  const filteredAppointments = useMemo(() => {
+    if (!q) return appointments;
+    return appointments.filter((a) => {
+      const hay = `${a.title} ${a.subtitle ?? ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [appointments, q]);
 
   const layoutByDay = useMemo(() => {
     const map = new Map<string, LayoutEv[]>();
 
     for (const day of weekDays) {
       const key = toLocalDateKey(day);
-      const raw = appointments.filter((a) => toLocalDateKey(parseStartAt(a.startAt)) === key);
+      const raw = filteredAppointments.filter((a) => toLocalDateKey(parseStartAt(a.startAt)) === key);
 
       const enriched = raw.map((a) => {
         const start = parseStartAt(a.startAt);
@@ -340,7 +392,7 @@ export function AppointmentCalendar({
     }
 
     return map;
-  }, [appointments, weekDays]);
+  }, [filteredAppointments, weekDays]);
 
   const handleColumnBackgroundClick = useCallback(
     (e: React.MouseEvent<HTMLElement>, day: Date) => {
@@ -377,54 +429,131 @@ export function AppointmentCalendar({
     );
   };
 
+  const gridTimeCol = "60px";
+
   return (
-    <div className="flex min-h-0 w-full flex-col">
-      {/* Barra da semana: uma linha limpa em telas médias+ */}
-      <div className="mb-3 flex flex-col gap-3 sm:mb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-        <div className="min-w-0 flex-1">
-          <div className="text-base font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg lg:text-xl">
-            <span className="lg:hidden">{weekRangeShort}</span>
-            <span className="hidden capitalize lg:inline">{weekRangeLabel}</span>
+    <div className={cn("flex min-h-0 w-full flex-col", isFullscreen && "min-h-0 flex-1")}>
+      {fullscreenTargetRef ? (
+        <div className="mb-2 flex justify-end lg:mb-2.5">
+          <label className="flex cursor-pointer items-center gap-2.5 text-sm font-medium text-slate-700">
+            <span>Agenda tela cheia</span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={isFullscreen}
+              aria-label={isFullscreen ? "Sair da tela cheia" : "Agenda em tela cheia"}
+              onClick={() => void toggleFullscreen()}
+              className={cn(
+                "relative h-7 w-12 shrink-0 rounded-full border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:ring-offset-2",
+                isFullscreen ? "border-slate-500 bg-slate-600" : "border-slate-300 bg-slate-200"
+              )}
+            >
+              <span
+                className={cn(
+                  "absolute top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform",
+                  isFullscreen ? "translate-x-[22px]" : "translate-x-0.5"
+                )}
+              />
+            </button>
+          </label>
+        </div>
+      ) : null}
+
+      <div className="mb-3 flex flex-col gap-3 border-b border-slate-200/80 pb-3 sm:mb-4 sm:pb-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 touch-manipulation px-3"
+              onClick={() => onNavigateToToday?.()}
+            >
+              Hoje
+            </Button>
+            <Select value="week" onValueChange={() => {}}>
+              <SelectTrigger size="sm" className="h-9 w-[118px] bg-white">
+                <SelectValue placeholder="Semana" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="week">Semana</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <p className="mt-0.5 text-[11px] text-slate-500 lg:hidden">
-            Um dia por vez · deslize os dias · grade com rolagem
-          </p>
+
+          <div className="flex min-w-0 flex-1 items-center justify-center gap-1 sm:gap-2">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 touch-manipulation"
+              onClick={() => onWeekChange(-1)}
+              aria-label="Semana anterior"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 px-1 text-center sm:px-2">
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-500 sm:text-[11px]">
+                Semana
+              </div>
+              <div className="truncate text-xs font-semibold capitalize text-slate-900 sm:text-sm">
+                <span className="lg:hidden">{weekRangeShort}</span>
+                <span className="hidden lg:inline">{weekRangeLabel}</span>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9 shrink-0 touch-manipulation"
+              onClick={() => onWeekChange(1)}
+              aria-label="Próxima semana"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="relative hidden md:block">
+              <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Input
+                placeholder="Buscar..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="h-9 w-36 bg-white pl-8 lg:w-44"
+              />
+            </div>
+            <Button
+              size="sm"
+              className="h-9 gap-1 bg-blue-600 px-3 text-white hover:bg-blue-700"
+              onClick={() => onNewAppointment?.()}
+            >
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Novo agendamento</span>
+              <span className="sm:hidden">Novo</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-9 gap-1 border-orange-400 text-orange-700 hover:bg-orange-50"
+              onClick={() => onConfigure?.()}
+            >
+              <Settings className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Configurar</span>
+            </Button>
+          </div>
         </div>
 
-        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-10 flex-1 touch-manipulation rounded-xl px-3 sm:min-h-9 sm:flex-none"
-            onClick={() => onWeekChange(-1)}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4 shrink-0" />
-            <span className="hidden sm:inline">Semana anterior</span>
-            <span className="sm:hidden">Anterior</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            className="min-h-10 flex-1 touch-manipulation rounded-xl px-3 sm:min-h-9 sm:flex-none"
-            onClick={() => onWeekChange(1)}
-          >
-            <span className="hidden sm:inline">Próxima semana</span>
-            <span className="sm:hidden">Próxima</span>
-            <ChevronRight className="ml-1 h-4 w-4 shrink-0" />
-          </Button>
-          <Button
-            variant="secondary"
-            size="sm"
-            className="min-h-10 w-full touch-manipulation rounded-xl sm:min-h-9 sm:w-auto"
-            onClick={() => onNavigateToToday?.()}
-          >
-            Hoje
-          </Button>
+        <div className="relative md:hidden">
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-9 w-full bg-white pl-8"
+          />
         </div>
       </div>
 
       {/* ——— Mobile / tablet: um dia por vez (evita 7 colunas estreitas) ——— */}
-      <div className="lg:hidden">
+      <div className={cn("lg:hidden", isFullscreen && "flex min-h-0 flex-1 flex-col")}>
         <div
           ref={dayStripRef}
           className="scrollbar-none -mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto scroll-pl-3 scroll-pr-3 pb-2 pt-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -461,22 +590,27 @@ export function AppointmentCalendar({
           ))}
         </div>
 
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
+        <div
+          className={cn(
+            "overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100",
+            isFullscreen && "min-h-0 flex-1"
+          )}
+        >
           <div
-            className="grid max-h-[min(62vh,600px)] gap-px overflow-y-auto overscroll-contain bg-slate-200 touch-pan-y [scrollbar-gutter:stable]"
+            className={cn(
+              "grid gap-px overflow-y-auto overscroll-contain bg-slate-200 touch-pan-y [scrollbar-gutter:stable]",
+              isFullscreen ? "max-h-none min-h-0 flex-1" : "max-h-[min(62vh,600px)]"
+            )}
             style={{
-              gridTemplateColumns: `56px minmax(0, 1fr)`,
+              gridTemplateColumns: `${gridTimeCol} minmax(0, 1fr)`,
             }}
           >
-            <div className="relative bg-slate-50/90 shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
-              <div className="sticky left-0 flex flex-col bg-slate-50/95" style={{ height: `${columnHeightMobile}px` }}>
+            <div className="relative bg-slate-100 shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
+              <div className="sticky left-0 flex flex-col bg-slate-100" style={{ height: `${columnHeightMobile}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={i}
-                    className={cn(
-                      "flex shrink-0 justify-end pr-1.5 text-[11px] font-medium leading-none text-slate-600",
-                      i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
-                    )}
+                    className="flex shrink-0 items-start justify-end pr-1.5 text-[10px] font-medium leading-none text-slate-600"
                     style={{ height: PX_PER_SLOT_MOBILE }}
                   >
                     {label}
@@ -498,11 +632,14 @@ export function AppointmentCalendar({
                     to bottom,
                     transparent 0,
                     transparent ${PX_PER_SLOT_MOBILE - 1}px,
-                    rgb(241 245 249) ${PX_PER_SLOT_MOBILE - 1}px,
-                    rgb(241 245 249) ${PX_PER_SLOT_MOBILE}px
+                    rgb(226 232 240) ${PX_PER_SLOT_MOBILE - 1}px,
+                    rgb(226 232 240) ${PX_PER_SLOT_MOBILE}px
                   )`,
                 }}
               />
+              {mobileDay && isToday(mobileDay) ? (
+                <CurrentTimeLine columnHeightPx={columnHeightMobile} />
+              ) : null}
               <AppointmentBlocks
                 blocks={mobileBlocks}
                 variant="mobile"
@@ -514,23 +651,33 @@ export function AppointmentCalendar({
       </div>
 
       {/* ——— Desktop: semana completa, rolagem única, cabeçalho dos dias fixo ——— */}
-      <div className="hidden min-w-0 lg:block">
-        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
-          <div className="max-h-[min(78vh,920px)] overflow-auto overscroll-contain [scrollbar-gutter:stable]">
+      <div className={cn("hidden min-h-0 min-w-0 lg:flex lg:flex-col", isFullscreen && "flex-1")}>
+        <div
+          className={cn(
+            "overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100",
+            isFullscreen && "flex min-h-0 flex-1 flex-col"
+          )}
+        >
+          <div
+            className={cn(
+              "overflow-auto overscroll-contain [scrollbar-gutter:stable]",
+              isFullscreen ? "max-h-none min-h-0 flex-1" : "max-h-[min(78vh,920px)]"
+            )}
+          >
             <div className="min-w-[960px]">
               <div
-                className="sticky top-0 z-20 grid gap-px border-b border-slate-200 bg-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.06)]"
+                className="sticky top-0 z-20 grid gap-px border-b border-slate-300/80 bg-slate-300/80 shadow-[0_1px_0_rgba(15,23,42,0.06)]"
                 style={{
-                  gridTemplateColumns: `56px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `${gridTimeCol} repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
                 }}
               >
-                <div className="bg-white" aria-hidden />
+                <div className="bg-slate-100" aria-hidden />
                 {weekDays.map((d) => (
                   <div
                     key={toLocalDateKey(d)}
                     className={cn(
-                      "bg-white px-1.5 py-2.5 text-center sm:px-2 sm:py-3",
-                      isToday(d) && "bg-violet-50 ring-1 ring-inset ring-violet-200"
+                      "bg-slate-100 px-1.5 py-2.5 text-center sm:px-2 sm:py-3",
+                      isToday(d) && "bg-sky-100 ring-1 ring-inset ring-sky-300/70"
                     )}
                   >
                     <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
@@ -553,20 +700,17 @@ export function AppointmentCalendar({
               </div>
 
               <div
-                className="grid gap-px bg-slate-200"
+                className="grid gap-px bg-slate-300/70"
                 style={{
-                  gridTemplateColumns: `56px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
+                  gridTemplateColumns: `${gridTimeCol} repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
                 }}
               >
-                <div className="relative z-10 bg-white shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
-                  <div className="sticky left-0 flex flex-col bg-white" style={{ height: `${columnHeightDesktop}px` }}>
+                <div className="relative z-10 bg-slate-50 shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
+                  <div className="sticky left-0 flex flex-col bg-slate-50" style={{ height: `${columnHeightDesktop}px` }}>
                     {timeLabels.map((label, i) => (
                       <div
                         key={i}
-                        className={cn(
-                          "flex shrink-0 justify-end pr-2 text-[10px] leading-none text-slate-500 sm:text-[11px]",
-                          i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
-                        )}
+                        className="flex shrink-0 items-start justify-end pr-2 text-[10px] leading-none text-slate-600 sm:text-[11px]"
                         style={{ height: PX_PER_SLOT_DESKTOP }}
                       >
                         {label}
@@ -594,12 +738,13 @@ export function AppointmentCalendar({
                         to bottom,
                         transparent 0,
                         transparent ${PX_PER_SLOT_DESKTOP - 1}px,
-                        rgb(241 245 249) ${PX_PER_SLOT_DESKTOP - 1}px,
-                        rgb(241 245 249) ${PX_PER_SLOT_DESKTOP}px
+                        rgb(226 232 240) ${PX_PER_SLOT_DESKTOP - 1}px,
+                        rgb(226 232 240) ${PX_PER_SLOT_DESKTOP}px
                       )`,
                         }}
                       />
 
+                      {isToday(day) ? <CurrentTimeLine columnHeightPx={columnHeightDesktop} /> : null}
                       <AppointmentBlocks blocks={blocks} variant="desktop" onSelectAppointment={onSelectAppointment} />
                     </div>
                   );
