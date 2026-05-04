@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 const WEEKDAY_COLUMNS = 5;
 
 const DAY_START_HOUR = 7;
-const DAY_END_HOUR = 20;
+/** Fim do dia na grade (24 = meia-noite); minutos usam 24 * 60 */
+const DAY_END_HOUR = 24;
 const SLOT_MINUTES = 15;
 
 /** Desktop: altura por faixa de 15 min */
@@ -270,10 +271,13 @@ export function AppointmentCalendar({
   const timeLabels = useMemo(() => {
     const labels: string[] = [];
     for (let m = DAY_START_MIN; m < DAY_END_MIN; m += SLOT_MINUTES) {
-      const h = Math.floor(m / 60);
       const mm = m % 60;
-      if (mm === 0) {
-        labels.push(`${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`);
+      const isLastSlot = m + SLOT_MINUTES >= DAY_END_MIN;
+      if (isLastSlot && DAY_END_MIN === 24 * 60) {
+        labels.push("00:00");
+      } else if (mm === 0) {
+        const h = Math.floor(m / 60);
+        labels.push(`${String(h).padStart(2, "0")}:00`);
       } else {
         labels.push("");
       }
@@ -455,7 +459,10 @@ export function AppointmentCalendar({
                 {timeLabels.map((label, i) => (
                   <div
                     key={i}
-                    className="flex shrink-0 items-start justify-end pr-1.5 text-[10px] font-medium leading-none text-slate-500"
+                    className={cn(
+                      "flex shrink-0 justify-end pr-1.5 text-[10px] font-medium leading-none text-slate-500",
+                      i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
+                    )}
                     style={{ height: PX_PER_SLOT_MOBILE }}
                   >
                     {label}
@@ -540,7 +547,10 @@ export function AppointmentCalendar({
                 {timeLabels.map((label, i) => (
                   <div
                     key={i}
-                    className="flex shrink-0 items-start justify-end pr-2 text-[11px] leading-none text-slate-500"
+                    className={cn(
+                      "flex shrink-0 justify-end pr-2 text-[11px] leading-none text-slate-500",
+                      i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
+                    )}
                     style={{ height: PX_PER_SLOT_DESKTOP }}
                   >
                     {label}
@@ -583,8 +593,8 @@ export function AppointmentCalendar({
       </div>
 
       <p className="mt-3 hidden text-xs text-slate-500 sm:block">
-        Clique em um horário vazio para criar um agendamento. Clique em um bloco para editar. Grade {DAY_START_HOUR}h–
-        {DAY_END_HOUR}h, intervalos de {SLOT_MINUTES} min.
+        Clique em um horário vazio para criar um agendamento. Clique em um bloco para editar. Grade {DAY_START_HOUR}h–0h
+        (meia-noite), intervalos de {SLOT_MINUTES} min.
       </p>
     </div>
   );
