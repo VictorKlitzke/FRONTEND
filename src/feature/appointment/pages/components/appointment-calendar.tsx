@@ -11,8 +11,8 @@ const DAY_START_HOUR = 7;
 const DAY_END_HOUR = 24;
 const SLOT_MINUTES = 15;
 
-/** Desktop: altura por faixa de 15 min */
-const PX_PER_SLOT_DESKTOP = 34;
+/** Desktop: altura por faixa de 15 min (mais compacto = menos rolagem na semana) */
+const PX_PER_SLOT_DESKTOP = 30;
 /** Mobile: coluna única — altura equilibrada entre legibilidade e rolagem */
 const PX_PER_SLOT_MOBILE = 32;
 
@@ -379,21 +379,23 @@ export function AppointmentCalendar({
 
   return (
     <div className="flex min-h-0 w-full flex-col">
-      {/* Toolbar — mobile: compact & thumb-friendly */}
-      <div className="mb-3 flex flex-col gap-3 sm:mb-6">
-        <div className="flex flex-col gap-1">
-          <div className="text-lg font-semibold leading-tight tracking-tight text-slate-900 lg:text-2xl">
+      {/* Barra da semana: uma linha limpa em telas médias+ */}
+      <div className="mb-3 flex flex-col gap-3 sm:mb-4 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="text-base font-semibold leading-tight tracking-tight text-slate-900 sm:text-lg lg:text-xl">
             <span className="lg:hidden">{weekRangeShort}</span>
             <span className="hidden capitalize lg:inline">{weekRangeLabel}</span>
           </div>
-          <p className="text-xs text-slate-500 lg:hidden">Deslize os dias · toque na grade para agendar</p>
+          <p className="mt-0.5 text-[11px] text-slate-500 lg:hidden">
+            Um dia por vez · deslize os dias · grade com rolagem
+          </p>
         </div>
 
-        <div className="flex flex-wrap items-stretch gap-2 lg:justify-end">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 sm:justify-end">
           <Button
             variant="outline"
             size="sm"
-            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none lg:min-h-9"
+            className="min-h-10 flex-1 touch-manipulation rounded-xl px-3 sm:min-h-9 sm:flex-none"
             onClick={() => onWeekChange(-1)}
           >
             <ChevronLeft className="mr-1 h-4 w-4 shrink-0" />
@@ -403,7 +405,7 @@ export function AppointmentCalendar({
           <Button
             variant="outline"
             size="sm"
-            className="min-h-11 flex-1 touch-manipulation rounded-xl px-3 sm:flex-none lg:min-h-9"
+            className="min-h-10 flex-1 touch-manipulation rounded-xl px-3 sm:min-h-9 sm:flex-none"
             onClick={() => onWeekChange(1)}
           >
             <span className="hidden sm:inline">Próxima semana</span>
@@ -413,7 +415,7 @@ export function AppointmentCalendar({
           <Button
             variant="secondary"
             size="sm"
-            className="min-h-11 w-full touch-manipulation rounded-xl sm:w-auto lg:min-h-9"
+            className="min-h-10 w-full touch-manipulation rounded-xl sm:min-h-9 sm:w-auto"
             onClick={() => onNavigateToToday?.()}
           >
             Hoje
@@ -461,13 +463,13 @@ export function AppointmentCalendar({
 
         <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
           <div
-            className="grid max-h-[min(58vh,520px)] gap-px overflow-y-auto overscroll-contain bg-slate-200 touch-pan-y [scrollbar-gutter:stable]"
+            className="grid max-h-[min(62vh,600px)] gap-px overflow-y-auto overscroll-contain bg-slate-200 touch-pan-y [scrollbar-gutter:stable]"
             style={{
               gridTemplateColumns: `56px minmax(0, 1fr)`,
             }}
           >
-            <div className="relative bg-slate-50/90">
-              <div className="sticky left-0 flex flex-col" style={{ height: `${columnHeightMobile}px` }}>
+            <div className="relative bg-slate-50/90 shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
+              <div className="sticky left-0 flex flex-col bg-slate-50/95" style={{ height: `${columnHeightMobile}px` }}>
                 {timeLabels.map((label, i) => (
                   <div
                     key={i}
@@ -511,105 +513,109 @@ export function AppointmentCalendar({
         </div>
       </div>
 
-      {/* ——— Desktop (telas largas): semana completa ——— */}
-      <div className="hidden min-w-0 overflow-x-auto pb-1 lg:block">
-        <div className="min-w-[1000px]">
-          <div
-            className="grid gap-px border-b border-slate-200 bg-slate-200"
-            style={{
-              gridTemplateColumns: `64px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
-            }}
-          >
-            <div className="bg-white" />
-            {weekDays.map((d) => (
+      {/* ——— Desktop: semana completa, rolagem única, cabeçalho dos dias fixo ——— */}
+      <div className="hidden min-w-0 lg:block">
+        <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm ring-1 ring-slate-100">
+          <div className="max-h-[min(78vh,920px)] overflow-auto overscroll-contain [scrollbar-gutter:stable]">
+            <div className="min-w-[960px]">
               <div
-                key={toLocalDateKey(d)}
-                className={cn(
-                  "bg-white px-2 py-3 text-center",
-                  isToday(d) && "bg-violet-50 ring-1 ring-inset ring-violet-300"
-                )}
+                className="sticky top-0 z-20 grid gap-px border-b border-slate-200 bg-slate-200 shadow-[0_1px_0_rgba(15,23,42,0.06)]"
+                style={{
+                  gridTemplateColumns: `56px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
+                }}
               >
-                <div className="text-[11px] font-bold uppercase tracking-wide text-slate-500">
-                  {d
-                    .toLocaleDateString("pt-BR", { weekday: "short" })
-                    .replace(/\./g, "")
-                    .slice(0, 3)
-                    .toUpperCase()}
-                </div>
-                <div className="text-sm font-bold tabular-nums text-slate-900">
-                  {d.getDate()}/{d.getMonth() + 1}
-                </div>
-                {isToday(d) ? (
-                  <div className="mt-1 inline-block rounded-full bg-violet-600 px-2 py-0.5 text-[10px] font-medium text-white">
-                    Hoje
-                  </div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-
-          <div
-            className="grid gap-px bg-slate-200"
-            style={{
-              gridTemplateColumns: `64px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
-            }}
-          >
-            <div className="relative bg-white">
-              <div className="sticky left-0 flex flex-col" style={{ height: `${columnHeightDesktop}px` }}>
-                {timeLabels.map((label, i) => (
+                <div className="bg-white" aria-hidden />
+                {weekDays.map((d) => (
                   <div
-                    key={i}
+                    key={toLocalDateKey(d)}
                     className={cn(
-                      "flex shrink-0 justify-end pr-2 text-[11px] leading-none text-slate-500",
-                      i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
+                      "bg-white px-1.5 py-2.5 text-center sm:px-2 sm:py-3",
+                      isToday(d) && "bg-violet-50 ring-1 ring-inset ring-violet-200"
                     )}
-                    style={{ height: PX_PER_SLOT_DESKTOP }}
                   >
-                    {label}
+                    <div className="text-[10px] font-bold uppercase tracking-wide text-slate-500 sm:text-[11px]">
+                      {d
+                        .toLocaleDateString("pt-BR", { weekday: "short" })
+                        .replace(/\./g, "")
+                        .slice(0, 3)
+                        .toUpperCase()}
+                    </div>
+                    <div className="text-xs font-bold tabular-nums text-slate-900 sm:text-sm">
+                      {d.getDate()}/{d.getMonth() + 1}
+                    </div>
+                    {isToday(d) ? (
+                      <div className="mt-0.5 inline-block rounded-full bg-violet-600 px-1.5 py-0.5 text-[9px] font-medium text-white sm:mt-1 sm:px-2 sm:text-[10px]">
+                        Hoje
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>
-            </div>
 
-            {weekDays.map((day) => {
-              const key = toLocalDateKey(day);
-              const blocks = layoutByDay.get(key) ?? [];
+              <div
+                className="grid gap-px bg-slate-200"
+                style={{
+                  gridTemplateColumns: `56px repeat(${WEEKDAY_COLUMNS}, minmax(0, 1fr))`,
+                }}
+              >
+                <div className="relative z-10 bg-white shadow-[2px_0_8px_-4px_rgba(15,23,42,0.08)]">
+                  <div className="sticky left-0 flex flex-col bg-white" style={{ height: `${columnHeightDesktop}px` }}>
+                    {timeLabels.map((label, i) => (
+                      <div
+                        key={i}
+                        className={cn(
+                          "flex shrink-0 justify-end pr-2 text-[10px] leading-none text-slate-500 sm:text-[11px]",
+                          i === timeLabels.length - 1 && label === "00:00" ? "items-end pb-0.5" : "items-start"
+                        )}
+                        style={{ height: PX_PER_SLOT_DESKTOP }}
+                      >
+                        {label}
+                      </div>
+                    ))}
+                  </div>
+                </div>
 
-              return (
-                <div
-                  key={key}
-                  className="relative bg-white"
-                  style={{ minHeight: columnHeightDesktop }}
-                  onClick={(e) => handleColumnBackgroundClick(e, day)}
-                  role="presentation"
-                >
-                  <div
-                    className="pointer-events-none absolute inset-0"
-                    style={{
-                      backgroundImage: `repeating-linear-gradient(
+                {weekDays.map((day) => {
+                  const key = toLocalDateKey(day);
+                  const blocks = layoutByDay.get(key) ?? [];
+
+                  return (
+                    <div
+                      key={key}
+                      className="relative bg-white"
+                      style={{ minHeight: columnHeightDesktop }}
+                      onClick={(e) => handleColumnBackgroundClick(e, day)}
+                      role="presentation"
+                    >
+                      <div
+                        className="pointer-events-none absolute inset-0"
+                        style={{
+                          backgroundImage: `repeating-linear-gradient(
                         to bottom,
                         transparent 0,
                         transparent ${PX_PER_SLOT_DESKTOP - 1}px,
                         rgb(241 245 249) ${PX_PER_SLOT_DESKTOP - 1}px,
                         rgb(241 245 249) ${PX_PER_SLOT_DESKTOP}px
                       )`,
-                    }}
-                  />
+                        }}
+                      />
 
-                  <AppointmentBlocks blocks={blocks} variant="desktop" onSelectAppointment={onSelectAppointment} />
-                </div>
-              );
-            })}
+                      <AppointmentBlocks blocks={blocks} variant="desktop" onSelectAppointment={onSelectAppointment} />
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <p className="mt-2 px-0.5 text-center text-[11px] leading-snug text-slate-500 lg:hidden">
-        Role a grade para ver o dia inteiro. Toque num horário vazio para novo agendamento.
-      </p>
-      <p className="mt-3 hidden text-xs text-slate-500 lg:block">
-        Clique em um horário vazio para criar um agendamento. Clique em um bloco para editar. Grade {DAY_START_HOUR}h–0h
-        (meia-noite), intervalos de {SLOT_MINUTES} min.
+      <p className="mt-2.5 text-[11px] text-slate-500 lg:mt-3 lg:text-xs">
+        <span className="lg:hidden">Horário vazio = novo agendamento · bloco = editar</span>
+        <span className="hidden lg:inline">
+          Horário vazio cria agendamento · clique no bloco para editar · {DAY_START_HOUR}h–0h · faixas de {SLOT_MINUTES}{" "}
+          min
+        </span>
       </p>
     </div>
   );

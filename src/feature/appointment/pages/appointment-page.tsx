@@ -374,16 +374,14 @@ export const AppointmentPage = () => {
           <div>
             <CardTitle>{labels.appointments.plural}</CardTitle>
             <CardDescription className="hidden lg:block">
-              Visão semanal (segunda a domingo), grade por horário — clique no horário ou no bloco
+              Semana seg–dom · acompanhe e crie agendamentos na grade
             </CardDescription>
-            <p className="mt-1 text-sm text-muted-foreground lg:hidden">
-              Um dia por vez no celular · deslize os dias no topo e role a grade
-            </p>
+            <p className="mt-1 text-sm text-muted-foreground lg:hidden">Grade semanal · use os botões e deslize os dias</p>
           </div>
 
         </CardHeader>
         <CardContent className="min-h-0 px-3 pb-6 pt-0 sm:px-6 sm:pb-6">
-          <div className="w-full lg:max-h-[min(72vh,calc(100vh-13rem))] lg:overflow-y-auto lg:overscroll-contain lg:pr-1">
+          <div className="w-full min-h-0">
             <AppointmentCalendar
               viewDate={calendarViewDate}
               appointments={calendarAppointments}
